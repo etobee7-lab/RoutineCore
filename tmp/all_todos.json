@@ -1,0 +1,185 @@
+﻿{
+    "value":  [
+                  {
+                      "id":  1772612922259,
+                      "text":  "취침",
+                      "time":  "21:30",
+                      "completed":  0,
+                      "createdAt":  1772612922259,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772612895354,
+                      "text":  "휴식",
+                      "time":  "19:20",
+                      "completed":  0,
+                      "createdAt":  1772612895354,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772611698595,
+                      "text":  "저녁식사",
+                      "time":  "18:40",
+                      "completed":  0,
+                      "createdAt":  1772611698595,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772610815146,
+                      "text":  "퇴근",
+                      "time":  "18:10",
+                      "completed":  0,
+                      "createdAt":  1772610815146,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772610765225,
+                      "text":  "업무 정리",
+                      "time":  "17:00",
+                      "completed":  0,
+                      "createdAt":  1772610765225,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772663824157,
+                      "text":  "Test 알람",
+                      "time":  "14:05",
+                      "completed":  0,
+                      "createdAt":  1772663824157,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772594095209,
+                      "text":  "오후 업무 시작",
+                      "time":  "13:00",
+                      "completed":  0,
+                      "createdAt":  1772594095209,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772594038979,
+                      "text":  "점심",
+                      "time":  "12:00",
+                      "completed":  0,
+                      "createdAt":  1772594038979,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772594000429,
+                      "text":  "오전 업무 시작",
+                      "time":  "09:00",
+                      "completed":  0,
+                      "createdAt":  1772594000429,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772593968743,
+                      "text":  "하루업무계획",
+                      "time":  "08:40",
+                      "completed":  0,
+                      "createdAt":  1772593968743,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772593930367,
+                      "text":  "공부",
+                      "time":  "08:00",
+                      "completed":  0,
+                      "createdAt":  1772593930367,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772593855054,
+                      "text":  "독서 북리뷰",
+                      "time":  "07:00",
+                      "completed":  0,
+                      "createdAt":  1772593855054,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772593796927,
+                      "text":  "블로그 유튜브 쇼츠 안티그래비티",
+                      "time":  "06:00",
+                      "completed":  0,
+                      "createdAt":  1772593796927,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772593523665,
+                      "text":  "커피 약 신문 키보드연습",
+                      "time":  "05:30",
+                      "completed":  0,
+                      "createdAt":  1772593523665,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772592543286,
+                      "text":  "정리 정돈 ",
+                      "time":  "05:00",
+                      "completed":  1,
+                      "createdAt":  1772592543286,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772592452475,
+                      "text":  "출근 반야심경",
+                      "time":  "04:40",
+                      "completed":  1,
+                      "createdAt":  1772592452475,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772592388421,
+                      "text":  "샤워",
+                      "time":  "04:05",
+                      "completed":  1,
+                      "createdAt":  1772592388421,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  },
+                  {
+                      "id":  1772592340484,
+                      "text":  "기상 감사기도",
+                      "time":  "04:00",
+                      "completed":  1,
+                      "createdAt":  1772592340484,
+                      "days":  "월,화,수,목,금",
+                      "excludeHolidays":  1,
+                      "username":  "master"
+                  }
+              ],
+    "Count":  18
+}

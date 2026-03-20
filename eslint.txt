@@ -1,0 +1,6 @@
+﻿
+C:\Users\USER\Desktop\?댄넗鍮?AI\TO DO LIST\src\App.jsx
+  24:6  warning  React Hook useEffect has missing dependencies: 'middleStart', 'options', and 'value'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+??1 problem (0 errors, 1 warning)
+
