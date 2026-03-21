@@ -144,6 +144,7 @@ async function initDB() {
 
         pool = mysql.createPool(dbConfig);
 
+        // [남개발 부장] 하위 호환성을 위해 기존 todos 테이블 유지
         await pool.query(`
             CREATE TABLE IF NOT EXISTS todos (
                 id BIGINT PRIMARY KEY,
@@ -157,6 +158,52 @@ async function initDB() {
                 username VARCHAR(50) DEFAULT 'master',
                 createdAt BIGINT,
                 lastNotifiedDate VARCHAR(20) DEFAULT NULL
+            )
+        `);
+
+        // [남개발 부장] 고도화된 전문 테이블 3종 세트 구축
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS routines (
+                id BIGINT PRIMARY KEY,
+                text VARCHAR(255) NOT NULL,
+                time VARCHAR(10),
+                completed BOOLEAN DEFAULT FALSE,
+                days VARCHAR(100),
+                excludeHolidays BOOLEAN DEFAULT FALSE,
+                isFailed BOOLEAN DEFAULT FALSE,
+                username VARCHAR(50) DEFAULT 'master',
+                createdAt BIGINT,
+                lastNotifiedDate VARCHAR(20) DEFAULT NULL
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS schedules (
+                id BIGINT PRIMARY KEY,
+                text VARCHAR(255) NOT NULL,
+                time VARCHAR(10),
+                completed BOOLEAN DEFAULT FALSE,
+                days VARCHAR(100),
+                excludeHolidays BOOLEAN DEFAULT FALSE,
+                isFailed BOOLEAN DEFAULT FALSE,
+                username VARCHAR(50) DEFAULT 'master',
+                createdAt BIGINT,
+                lastNotifiedDate VARCHAR(20) DEFAULT NULL,
+                priority INT DEFAULT 0
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS memos (
+                id BIGINT PRIMARY KEY,
+                text VARCHAR(255) NOT NULL,
+                time VARCHAR(10),
+                completed BOOLEAN DEFAULT FALSE,
+                days VARCHAR(100),
+                username VARCHAR(50) DEFAULT 'master',
+                createdAt BIGINT,
+                category VARCHAR(50) DEFAULT 'general',
+                isPinned BOOLEAN DEFAULT FALSE
             )
         `);
 
@@ -189,51 +236,24 @@ async function initDB() {
             )
         `);
 
-        // 컬럼 추가 (기존 DB 마이그레이션)
-        try { await pool.query(`ALTER TABLE todos ADD COLUMN username VARCHAR(50) DEFAULT 'master'`); } catch (e) { }
-        try { await pool.query(`ALTER TABLE todos ADD COLUMN isFailed BOOLEAN DEFAULT FALSE`); } catch (e) { }
-        try { await pool.query(`ALTER TABLE todos ADD COLUMN scheduleMode VARCHAR(20) DEFAULT 'routine'`); } catch (e) { }
-        try {
-            await pool.query(`ALTER TABLE todos ADD COLUMN lastNotifiedDate VARCHAR(20) DEFAULT NULL`);
-            console.log("Added lastNotifiedDate column to todos table");
-        } catch (e) { }
+        // 인덱싱 최적화
+        try { await pool.query(`CREATE INDEX idx_routines_alert ON routines (time, completed, lastNotifiedDate)`); } catch (e) { }
+        try { await pool.query(`CREATE INDEX idx_schedules_alert ON schedules (time, completed, lastNotifiedDate)`); } catch (e) { }
+        try { await pool.query(`CREATE INDEX idx_routines_user ON routines (username)`); } catch (e) { }
 
-        // [남개발 부장] 대규모 트래픽 대응을 위한 인덱싱 추가 (성능 최적화)
-        try { await pool.query(`CREATE INDEX idx_todos_alert ON todos (time, completed, lastNotifiedDate)`); } catch (e) { }
-        try { await pool.query(`CREATE INDEX idx_todos_user_routine ON todos (username, scheduleMode, completed)`); } catch (e) { }
-        try { await pool.query(`CREATE INDEX idx_push_subs_user ON push_subscriptions (username)`); } catch (e) { }
-
-        try { await pool.query(`ALTER TABLE affirmations ADD COLUMN username VARCHAR(50) DEFAULT 'master'`); } catch (e) { }
-        try { await pool.query(`ALTER TABLE users ADD COLUMN name VARCHAR(100) DEFAULT '' AFTER password`); } catch (e) { }
-        try { await pool.query(`ALTER TABLE users ADD COLUMN points INT DEFAULT 0`); } catch (e) { }
-        try { await pool.query("ALTER TABLE users ADD COLUMN avatar VARCHAR(255) DEFAULT '😊'"); } catch (e) { }
-
-        try {
-            await pool.query(`ALTER TABLE affirmations ADD COLUMN username VARCHAR(50) DEFAULT 'master'`);
-            console.log("Added username column to affirmations table");
-        } catch (e) { /* 이미 존재하면 무시 */ }
-
-        try {
-            await pool.query(`ALTER TABLE users ADD COLUMN name VARCHAR(100) DEFAULT '' AFTER password`);
-        } catch (e) { /* 이미 존재하면 무시 */ }
-
-        try {
-            await pool.query(`ALTER TABLE users ADD COLUMN points INT DEFAULT 0`);
-            console.log("Added points column to users table");
-        } catch (e) { /* ignore */ }
-
-        // 마스터 계정 확인 및 추가 (id: master, pw: 1234)
+        // 마스터 계정 확인
         const [users] = await pool.query("SELECT * FROM users WHERE username = 'master'");
         if (users.length === 0) {
             await pool.query("INSERT INTO users (username, password, createdAt) VALUES (?, ?, ?)", ['master', '2tobee', Date.now()]);
             console.log("Master account created (master/2tobee)");
         }
 
-        console.log("Database initialized.");
+        console.log("Database initialized with split tables.");
     } catch (err) {
         console.error("DB Init Failed:", err.message);
     }
 }
+
 
 async function startServer() {
     await initDB();
@@ -254,24 +274,25 @@ async function startServer() {
 
             const [users] = await pool.query("SELECT username FROM users");
             for (const user of users) {
-                const [todos] = await pool.query("SELECT * FROM todos WHERE username = ?", [user.username]);
+                // [남개발 부장] 자정 정산은 반복성 과업인 'routines' 테이블을 기준으로 수행
+                const [routines] = await pool.query("SELECT * FROM routines WHERE username = ?", [user.username]);
 
                 let totalMissions = 0;
                 let completedMissions = 0;
 
-                for (const todo of todos) {
-                    const scheduledDays = todo.days ? todo.days.split(',') : [];
+                for (const routine of routines) {
+                    const scheduledDays = routine.days ? routine.days.split(',') : [];
                     if (scheduledDays.includes(dayStr)) {
                         totalMissions++;
-                        if (todo.completed) {
+                        if (routine.completed) {
                             completedMissions++;
                         }
                     }
                 }
 
                 if (totalMissions > 0) {
-                    // [남개발 부장] 검증된 pointCalculator 서비스로 정산 로직 대체
-                    const percent = pointCalculator.calculateDailyPoints(todos, dayStr);
+                    // [남개발 부장] 검증된 pointCalculator 서비스로 정산 로직 수행
+                    const percent = pointCalculator.calculateDailyPoints(routines, dayStr);
 
                     if (percent > 0) {
                         await pool.query("UPDATE users SET points = points + ? WHERE username = ?", [percent, user.username]);
@@ -279,13 +300,9 @@ async function startServer() {
                     }
                 }
 
-
-                // 자정 정산 후 처리:
-                // 1. '일정(schedule)' 및 '메모(memo)' 모드 유지 (검색 등을 위해 삭제하지 않음)
-                // await pool.query("DELETE FROM todos WHERE username = ? AND (scheduleMode = 'schedule' OR scheduleMode = 'memo')", [user.username]);
-
                 // 2. '루틴(routine)' 모드는 완료/실패 상태만 초기화 (다음 날 재빌드)
-                await pool.query("UPDATE todos SET completed = false, isFailed = false WHERE username = ? AND scheduleMode = 'routine'", [user.username]);
+                await pool.query("UPDATE routines SET completed = false, isFailed = false WHERE username = ?", [user.username]);
+                // [남개발 부장] 일정(schedules)도 완료 상태 초기화가 필요하다면 여기서 수행 (요청 시 추가 가능)
             }
             console.log(`[CRON] 자정 정산 및 데이터 정리 완료 (일정 삭제/루틴 초기화)`);
         } catch (err) {
@@ -304,40 +321,38 @@ async function startServer() {
             const currentTime = `${h24}:${m24}`;
             const todayDate = now.toLocaleDateString();
 
-            // 오늘 알람이 울려야 하고, 아직 안 울린 항목 조회
-            const [pendingTodos] = await pool.query(
-                "SELECT * FROM todos WHERE time = ? AND completed = false AND (lastNotifiedDate IS NULL OR lastNotifiedDate != ?)",
-                [currentTime, todayDate]
-            );
+            // [남개발 부장] 루틴과 일정을 통합 감시하여 알림 송출
+            const tables = ['routines', 'schedules'];
+            for (const tableName of tables) {
+                const [pendingItems] = await pool.query(
+                    `SELECT * FROM ${tableName} WHERE time = ? AND completed = false AND (lastNotifiedDate IS NULL OR lastNotifiedDate != ?)`,
+                    [currentTime, todayDate]
+                );
 
-            for (const todo of pendingTodos) {
-                const scheduledDays = todo.days ? todo.days.split(',').map(d => d.trim()) : [];
-                if (!scheduledDays.includes(todayStr)) continue;
+                for (const item of pendingItems) {
+                    const scheduledDays = item.days ? item.days.split(',').map(d => d.trim()) : [];
+                    if (!scheduledDays.includes(todayStr)) continue;
 
-                // 해당 사용자의 푸시 구독 정보 가져오기
-                const [subs] = await pool.query("SELECT subscription FROM push_subscriptions WHERE username = ?", [todo.username]);
+                    const [subs] = await pool.query("SELECT subscription FROM push_subscriptions WHERE username = ?", [item.username]);
 
-                // [남개발 부장] 통합 NotificationService로 병렬 알림 발송 수행
-                // allen-steel-concerts-notifications 연동 및 WebPush 통합 처리
-                const notificationPayload = {
-                    title: 'RoutineCore 알람',
-                    body: `${todo.text} 시간입니다!`,
-                    icon: '/logo192.png',
-                    data: { todoId: todo.id, username: todo.username }
-                };
+                    const notificationPayload = {
+                        title: `RoutineCore ${tableName === 'routines' ? '루틴' : '일정'} 알람`,
+                        body: `${item.text} 시간입니다!`,
+                        icon: '/logo192.png',
+                        data: { todoId: item.id, username: item.username, type: tableName }
+                    };
 
-                const broadcastResult = await notificationService.broadcast(subs, notificationPayload);
+                    const broadcastResult = await notificationService.broadcast(subs, notificationPayload);
 
-                // 발송 완료 후 구독 정보 정리 (만료된 것 삭제)
-                if (broadcastResult.cleanupNeeded.length > 0) {
-                  for (const sub of broadcastResult.cleanupNeeded) {
-                      await pool.query("DELETE FROM push_subscriptions WHERE subscription = ?", [sub]);
-                  }
+                    if (broadcastResult.cleanupNeeded.length > 0) {
+                      for (const sub of broadcastResult.cleanupNeeded) {
+                          await pool.query("DELETE FROM push_subscriptions WHERE subscription = ?", [sub]);
+                      }
+                    }
+
+                    await pool.query(`UPDATE ${tableName} SET lastNotifiedDate = ? WHERE id = ?`, [todayDate, item.id]);
+                    console.log(`[PUSH] Multi-channel notification sent: ${item.text} from ${tableName}`);
                 }
-
-                // 발송 완료 표시 (DB 업데이트 - 인덱싱 활용으로 속도 향상)
-                await pool.query("UPDATE todos SET lastNotifiedDate = ? WHERE id = ?", [todayDate, todo.id]);
-                console.log(`[PUSH] Multi-channel notification sent for ${todo.username}: ${todo.text} (Batch Total: ${broadcastResult.totalSent})`);
             }
 
         } catch (err) {
@@ -407,10 +422,20 @@ app.patch('/api/affirmations/:id', async (req, res) => {
 });
 
 // ===== TODOS (사용자별) =====
+// ===== TODOS (통합 인터페이스) =====
 app.get('/api/todos', async (req, res) => {
     try {
         const username = req.query.username || 'master';
-        const [rows] = await pool.query("SELECT * FROM todos WHERE username = ? ORDER BY time ASC", [username]);
+        // [남개발 부장] 신규 분리 테이블 3종을 통합하여 프런트엔드에 전달
+        const query = `
+            SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'routine' as scheduleMode, username, createdAt, lastNotifiedDate FROM routines WHERE username = ?
+            UNION ALL
+            SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'schedule' as scheduleMode, username, createdAt, lastNotifiedDate FROM schedules WHERE username = ?
+            UNION ALL
+            SELECT id, text, time, completed, days, false as excludeHolidays, false as isFailed, 'memo' as scheduleMode, username, createdAt, NULL as lastNotifiedDate FROM memos WHERE username = ?
+            ORDER BY time ASC
+        `;
+        const [rows] = await pool.query(query, [username, username, username]);
         res.json(rows);
     } catch (err) {
         console.error("GET error:", err.message);
@@ -422,10 +447,23 @@ app.post('/api/todos', async (req, res) => {
     try {
         const { id, text, time, completed, isFailed, days, excludeHolidays, scheduleMode, username, lastNotifiedDate } = req.body;
         const user = username || 'master';
-        await pool.query(
-            "INSERT INTO todos (id, text, time, completed, isFailed, days, excludeHolidays, scheduleMode, username, createdAt, lastNotifiedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [id, text, time, !!completed, !!isFailed, days, !!excludeHolidays, scheduleMode || 'routine', user, Date.now(), lastNotifiedDate || null]
-        );
+        const mode = scheduleMode || 'routine';
+        
+        let targetTable = 'routines';
+        if (mode === 'schedule') targetTable = 'schedules';
+        else if (mode === 'memo') targetTable = 'memos';
+
+        if (targetTable === 'memos') {
+          await pool.query(
+              `INSERT INTO ${targetTable} (id, text, time, completed, days, username, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [id, text, time, !!completed, days, user, Date.now()]
+          );
+        } else {
+          await pool.query(
+              `INSERT INTO ${targetTable} (id, text, time, completed, isFailed, days, excludeHolidays, username, createdAt, lastNotifiedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [id, text, time, !!completed, !!isFailed, days, !!excludeHolidays, user, Date.now(), lastNotifiedDate || null]
+          );
+        }
         res.status(201).json({ success: true });
     } catch (err) {
         console.error("POST error:", err.message);
@@ -437,22 +475,29 @@ app.patch('/api/todos/:id', async (req, res) => {
     try {
         const id = req.params.id;
         const updates = req.body;
+        const { scheduleMode } = updates;
+        
+        // 대상 테이블 결정 (없으면 루틴 우선)
+        let tables = ['routines', 'schedules', 'memos'];
+        if (scheduleMode === 'routine') tables = ['routines'];
+        else if (scheduleMode === 'schedule') tables = ['schedules'];
+        else if (scheduleMode === 'memo') tables = ['memos'];
+
         const fields = [];
         const values = [];
-
         for (const [key, value] of Object.entries(updates)) {
-            if (['text', 'time', 'completed', 'isFailed', 'days', 'excludeHolidays', 'scheduleMode', 'lastNotifiedDate'].includes(key)) {
+            if (['text', 'time', 'completed', 'isFailed', 'days', 'excludeHolidays', 'lastNotifiedDate'].includes(key)) {
                 fields.push(`${key} = ?`);
                 values.push(['completed', 'excludeHolidays', 'isFailed'].includes(key) ? !!value : value);
             }
         }
 
-        if (fields.length === 0) return res.json({ success: true, message: "No fields to update" });
+        if (fields.length === 0) return res.json({ success: true });
 
         values.push(id);
-        const query = `UPDATE todos SET ${fields.join(', ')} WHERE id = ?`;
-        await pool.query(query, values);
-        console.log(`Updated todo ${id} successfully.`);
+        for (const table of tables) {
+            await pool.query(`UPDATE ${table} SET ${fields.join(', ')} WHERE id = ?`, values);
+        }
         res.json({ success: true });
     } catch (err) {
         console.error("PATCH error:", err.message);
@@ -462,7 +507,10 @@ app.patch('/api/todos/:id', async (req, res) => {
 
 app.delete('/api/todos/:id', async (req, res) => {
     try {
-        await pool.query("DELETE FROM todos WHERE id = ?", [req.params.id]);
+        const id = req.params.id;
+        await pool.query("DELETE FROM routines WHERE id = ?", [id]);
+        await pool.query("DELETE FROM schedules WHERE id = ?", [id]);
+        await pool.query("DELETE FROM memos WHERE id = ?", [id]);
         res.status(204).send();
     } catch (err) {
         console.error("DELETE error:", err.message);
@@ -522,84 +570,90 @@ app.delete('/api/user-items/reset', async (req, res) => {
     }
 });
 
-// ===== ADMIN (관리자 전용) =====
-// 관리자 데이터 내보내기 (Export)
+// ===== ADMIN (관리자 전용 - 3대 테이블 통합 수출입) =====
 app.get('/api/admin/export', async (req, res) => {
     try {
-        console.log(`[ADMIN] Export request Query:`, req.query);
         const { username } = req.query;
         if (!username || username.toLowerCase() !== 'master') return res.status(403).json({ error: "권한이 없습니다." });
 
-        const [todos] = await pool.query("SELECT * FROM todos");
+        const [routines] = await pool.query("SELECT * FROM routines");
+        const [schedules] = await pool.query("SELECT * FROM schedules");
+        const [memos] = await pool.query("SELECT * FROM memos");
         const [affirmations] = await pool.query("SELECT * FROM affirmations");
         const [users] = await pool.query("SELECT username, password, name, avatar, points, createdAt FROM users");
 
         res.json({
-            version: "1.0",
+            version: "2.0 (Split Tables)",
             exportDate: new Date().toISOString(),
-            data: { todos, affirmations, users }
+            data: { routines, schedules, memos, affirmations, users }
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// 관리자 데이터 가져오기 (Import)
 app.post('/api/admin/import', async (req, res) => {
     try {
         const { username, importData } = req.body;
         if (!username || username.toLowerCase() !== 'master') return res.status(403).json({ error: "권한이 없습니다." });
         if (!importData || !importData.data) return res.status(400).json({ error: "데이터가 올바르지 않습니다." });
 
-        const { todos, affirmations, users } = importData.data;
+        const { routines, schedules, memos, affirmations, users } = importData.data;
 
-        // 트랜잭션 시작
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
 
-            // 1. Todos 복구 (데이터가 있을 때만)
-            if (todos && todos.length > 0) {
-                await connection.query("DELETE FROM todos");
-                for (const todo of todos) {
+            if (routines) {
+                await connection.query("DELETE FROM routines");
+                for (const r of routines) {
                     await connection.query(
-                        "INSERT INTO todos (id, text, time, completed, days, excludeHolidays, isFailed, scheduleMode, username, createdAt, lastNotifiedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        [todo.id, todo.text, todo.time, todo.completed, todo.days, todo.excludeHolidays, todo.isFailed, todo.scheduleMode, todo.username, todo.createdAt, todo.lastNotifiedDate || null]
+                        "INSERT INTO routines (id, text, time, completed, days, excludeHolidays, isFailed, username, createdAt, lastNotifiedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [r.id, r.text, r.time, r.completed, r.days, r.excludeHolidays, r.isFailed, r.username, r.createdAt, r.lastNotifiedDate]
+                    );
+                }
+            }
+            if (schedules) {
+                await connection.query("DELETE FROM schedules");
+                for (const s of schedules) {
+                    await connection.query(
+                        "INSERT INTO schedules (id, text, time, completed, days, excludeHolidays, isFailed, username, createdAt, lastNotifiedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [s.id, s.text, s.time, s.completed, s.days, s.excludeHolidays, s.isFailed, s.username, s.createdAt, s.lastNotifiedDate]
+                    );
+                }
+            }
+            if (memos) {
+                await connection.query("DELETE FROM memos");
+                for (const m of memos) {
+                    await connection.query(
+                        "INSERT INTO memos (id, text, time, completed, days, username, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [m.id, m.text, m.time, m.completed, m.days, m.username, m.createdAt]
                     );
                 }
             }
 
-            // 2. Affirmations 복구 (데이터가 있을 때만)
-            if (affirmations && affirmations.length > 0) {
-                // 특정 타입(긍정확언 또는 뼈때리는말)만 가져올 경우 다른 쪽 데이터가 지워지지 않도록 처리
-                const typesInImport = [...new Set(affirmations.map(a => a.type))];
-                if (typesInImport.length === 1) {
-                    await connection.query("DELETE FROM affirmations WHERE type = ?", [typesInImport[0]]);
-                } else {
-                    await connection.query("DELETE FROM affirmations");
-                }
-
+            if (affirmations) {
+                await connection.query("DELETE FROM affirmations");
                 for (const aff of affirmations) {
                     await connection.query(
                         "INSERT INTO affirmations (text, type, username, createdAt) VALUES (?, ?, ?, ?)",
-                        [aff.text, aff.type || 'positive', aff.username || 'master', aff.createdAt || Date.now()]
+                        [aff.text, aff.type, aff.username, aff.createdAt]
                     );
                 }
             }
 
-            // 3. Users 복구 (데이터가 있을 때만)
-            if (users && users.length > 0) {
+            if (users) {
                 await connection.query("DELETE FROM users");
-                for (const user of users) {
+                for (const u of users) {
                     await connection.query(
                         "INSERT INTO users (username, password, name, avatar, points, createdAt) VALUES (?, ?, ?, ?, ?, ?)",
-                        [user.username, user.password, user.name, user.avatar, user.points, user.createdAt]
+                        [u.username, u.password, u.name, u.avatar, u.points, u.createdAt]
                     );
                 }
             }
 
             await connection.commit();
-            res.json({ success: true, message: "데이터 복구 완료!" });
+            res.json({ success: true, message: "차세대 데이터 복구 완료!" });
         } catch (err) {
             await connection.rollback();
             throw err;

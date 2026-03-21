@@ -55,15 +55,47 @@ const SUCCESS_ITEMS = [
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioContext = null;
 
-const speakText = (text) => {
-  if (!window.speechSynthesis) return;
-  // 기존에 읽고 있던 것이 있다면 중단
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'ko-KR';
-  utterance.rate = 1.0;
-  utterance.pitch = 1.0;
-  window.speechSynthesis.speak(utterance);
+const speakText = (text, voiceName, callback) => {
+  if (typeof window === 'undefined' || !window.speechSynthesis) {
+    console.warn("TTS not supported.");
+    return;
+  }
+  try {
+    // [남개발 부장] 모바일 브라우저 호환성을 위한 초기화 체크
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+
+    window.speechSynthesis.cancel();
+
+    // 이모지 및 특수문자 제거 로직 간소화 (모바일 성능 고려)
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    // [남개발 부장] 선택된 목소리 적용
+    const voices = window.speechSynthesis.getVoices();
+    if (voiceName) {
+      const voice = voices.find(v => v.name === voiceName);
+      if (voice) utterance.voice = voice;
+    } else {
+      // 한국어 기본 보이스 강제 지정 시도
+      const koVoice = voices.find(v => v.lang.includes('ko'));
+      if (koVoice) utterance.voice = koVoice;
+    }
+
+    utterance.lang = 'ko-KR';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    if (callback) utterance.onend = callback;
+
+    // 약간의 지연 처리로 비동기 초기화 대응
+    setTimeout(() => {
+      window.speechSynthesis.speak(utterance);
+    }, 100);
+  } catch (err) {
+    console.error("Speech Synthesis Failed:", err);
+  }
 };
 
 const playAlarmSound = (soundId) => {
@@ -435,10 +467,56 @@ function App() {
     localStorage.setItem('alarmSound', alarmSound);
   }, [alarmSound]);
 
-  const [useVoiceAlarm, setUseVoiceAlarm] = useState(localStorage.getItem('useVoiceAlarm') === 'true');
+  // [남개발 부장] 계정 정보는 최상단에서 먼저 초기화하여 다른 설정들이 이를 참고하게 함
+  const [currentUser, setCurrentUser] = useState(() => {
+    return localStorage.getItem('routine_user') || '';
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('routine_auth') === 'true';
+  });
+
+  const [loginId, setLoginId] = useState('');
+  const [loginPw, setLoginPw] = useState('');
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [loginSuccess, setLoginSuccess] = useState('');
+  const [signUpName, setSignUpName] = useState('');
+  const [signUpConfirmPw, setSignUpConfirmPw] = useState('');
+
+  const [useVoiceAlarm, setUseVoiceAlarm] = useState(() => {
+    try {
+      const saved = localStorage.getItem('useVoiceAlarm');
+      if (saved === null) {
+        return currentUser && currentUser.toLowerCase().startsWith('master');
+      }
+      return saved === 'true';
+    } catch (e) {
+      return false; // localStorage 접근 불가 환경(시크릿 모드 등) 대응
+    }
+  });
+  const [selectedVoiceName, setSelectedVoiceName] = useState(localStorage.getItem('selectedVoiceName') || '');
+  const [voices, setVoices] = useState([]);
+
+  useEffect(() => {
+    if (!window.speechSynthesis) return;
+    const updateVoices = () => {
+      try {
+        setVoices(window.speechSynthesis.getVoices());
+      } catch (e) { console.error("Voice load fail", e); }
+    };
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
+    updateVoices();
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('useVoiceAlarm', useVoiceAlarm);
   }, [useVoiceAlarm]);
+
+  useEffect(() => {
+    localStorage.setItem('selectedVoiceName', selectedVoiceName);
+  }, [selectedVoiceName]);
 
   const [pendingAlerts, setPendingAlerts] = useState([])
   const currentAlert = pendingAlerts.length > 0 ? pendingAlerts[0] : null;
@@ -474,19 +552,6 @@ function App() {
   const [selectedAfId, setSelectedAfId] = useState(null)
   const [showDailyChart, setShowDailyChart] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('routine_auth') === 'true';
-  });
-  const [loginId, setLoginId] = useState('');
-  const [loginPw, setLoginPw] = useState('');
-  const [isSignUpMode, setIsSignUpMode] = useState(false);
-  const [loginError, setLoginError] = useState('');
-  const [loginSuccess, setLoginSuccess] = useState('');
-  const [signUpName, setSignUpName] = useState('');
-  const [signUpConfirmPw, setSignUpConfirmPw] = useState('');
-  const [currentUser, setCurrentUser] = useState(() => {
-    return localStorage.getItem('routine_user') || '';
-  });
 
   // 마이페이지 관련 state
   const [showMyPage, setShowMyPage] = useState(false);
@@ -685,8 +750,29 @@ function App() {
     }
 
     try {
-      // 알림 권한 요청
-      const permission = await Notification.requestPermission();
+      // [남개발 부장] 모바일/구형 브라우저 호환성을 위한 하이브리드 권한 요청
+      if (!window.Notification || !window.Notification.requestPermission) {
+        console.warn('Notification API not available.');
+        return;
+      }
+
+      let permission;
+      try {
+        // 우선 Promise 방식 시도
+        const promiseRes = window.Notification.requestPermission();
+        if (promiseRes && promiseRes.then) {
+          permission = await promiseRes;
+        } else {
+          // 콜백 방식 대응 (일부 모바일 사파리 등)
+          permission = await new Promise((resolve) => {
+            window.Notification.requestPermission(resolve);
+          });
+        }
+      } catch (e) {
+        console.error("Permission request error", e);
+        return;
+      }
+
       if (permission !== 'granted') {
         console.log('Notification permission denied.');
         return;
@@ -716,7 +802,8 @@ function App() {
     fetchTodos();
     fetchAffirmations();
     fetchProfile();
-    subscribeUserToPush(currentUser);
+    // [남개발 부장] 모바일/보안 규정 준수: 자동 푸시 요청 차단 (반드시 사용자 클릭 시에만 수행)
+    // subscribeUserToPush(currentUser);
 
     // 서비스 워커로부터의 메시지 수신 (알림 버튼 클릭 시 상태 갱신)
     const handleMessage = (event) => {
@@ -828,11 +915,13 @@ function App() {
           playAlarmSound(alarmSound);
 
           // 음성 알람 지원
+          // [남개발 부장] 음성 알람 고도화: 일정 내용과 확언을 연속해서 낭독
           if (useVoiceAlarm) {
-            speakText(`할 일을 확인해 주세요. ${todo.text} 시간입니다.`);
+            const voiceMsg = `${todo.text} 시간입니다. ${affirmationText ? '오늘의 메시지입니다. ' + affirmationText : ''}`;
+            speakText(voiceMsg, selectedVoiceName);
           }
 
-          if (Notification.permission === "granted" && document.hidden) {
+          if (window.Notification && window.Notification.permission === "granted" && document.hidden) {
             navigator.serviceWorker.ready.then(registration => {
               registration.showNotification("🕒 Routine Core 알람", {
                 body: `[${formatTime(todo.time)}] ${todo.text}\n할 일을 확인해 주세요!`,
@@ -908,6 +997,10 @@ function App() {
       setIsListening(false);
     };
 
+    // 알림 권한 체크 (푸시 알림 고도화 연동)
+    if (window.Notification && window.Notification.permission !== "granted" && window.Notification.permission !== "denied") {
+      subscribeUserToPush(currentUser);
+    }
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       console.log("Voice Input:", transcript);
@@ -919,10 +1012,15 @@ function App() {
 
   const parseAndSetTodo = (text) => {
     // 아주 간단한 자연어 파싱 (예: "아침 9시에 회의")
-    let parsedTime = { ampm: '오전', hour: '09', minute: '00' };
+    const now = new Date();
+    const currentAmpm = now.getHours() < 12 ? '오전' : '오후';
+    let parsedTime = { ampm: currentAmpm, hour: '09', minute: '00' };
     let taskName = text;
 
-    // 1. 오전/오후 판별
+    // 0. 초기 AM/PM 설정 (현재 시간 기준)
+    setAmpm(currentAmpm);
+
+    // 1. 오전/오후 판별 (텍스트에 포함된 경우 우선 적용)
     if (text.includes('오후') || text.includes('점심') || text.includes('저녁') || text.includes('밤')) {
       parsedTime.ampm = '오후';
       setAmpm('오후');
@@ -949,11 +1047,11 @@ function App() {
       }
     }
 
-    // 3. 분 추출
+    // 3. 분 추출 (음성 입력은 1분 단위 정밀도 유지)
     const minuteMatch = text.match(/(\d+)분/);
     if (minuteMatch) {
       const mRaw = parseInt(minuteMatch[1]);
-      const m = String((Math.round(mRaw / 5) * 5) % 60).padStart(2, '0'); // 5분 단위 반올림
+      const m = String(mRaw % 60).padStart(2, '0');
       parsedTime.minute = m;
       setMinute(m);
     } else if (text.includes('반')) {
@@ -961,9 +1059,11 @@ function App() {
       setMinute('30');
     }
 
-    // 4. 업무명 추출 (동사/조사만 가볍게 제거하여 원문의 시간 표현을 보존)
-    taskName = text.replace(/예약|등록|해줘|해|줘/g, '')
-      .replace(/(\d+시)\s*(\d+분)\s*에/g, '$1 $2') // "5시 47분에" -> "5시 47분"
+    // 4. 업무명 추출 (시간 표현을 최대한 깔끔하게 제거)
+    taskName = text.replace(/오전|오후|아침|점심|저녁|밤|새벽/g, '')
+      .replace(/(\d+시)\s*(\d+분)?\s*에?/g, '')
+      .replace(/한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시/g, '')
+      .replace(/예약|등록|해줘|해|줘/g, '')
       .trim();
 
     setInputValue(taskName);
@@ -1289,11 +1389,11 @@ function App() {
       await fetch(`${API_URL}/${todo.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          createdAt: today, 
-          completed: false, 
+        body: JSON.stringify({
+          createdAt: today,
+          completed: false,
           isFailed: false,
-          lastNotifiedDate: null 
+          lastNotifiedDate: null
         })
       });
       fetchTodos();
@@ -1753,9 +1853,9 @@ function App() {
                 <div className="mypage-section history-section">
                   <p className="mypage-label">🔍 전체 기록 검색 (루틴/일정/메모)</p>
                   <div className="history-search-input-group" style={{ padding: '0 20px' }}>
-                    <input 
-                      type="text" 
-                      placeholder="검색어를 입력하세요 (예: 회의, 아이디어, 운동...)" 
+                    <input
+                      type="text"
+                      placeholder="검색어를 입력하세요 (예: 회의, 아이디어, 운동...)"
                       value={historySearchTerm}
                       onChange={(e) => setHistorySearchTerm(e.target.value)}
                       className="mypage-input"
@@ -1764,7 +1864,7 @@ function App() {
                   <div className="mypage-routine-list no-scrollbar">
                     {(() => {
                       const searchLower = historySearchTerm.toLowerCase();
-                      const filteredHistory = todos.filter(t => 
+                      const filteredHistory = todos.filter(t =>
                         (t.text || '').toLowerCase().includes(searchLower) ||
                         (t.scheduleMode || '').toLowerCase().includes(searchLower)
                       );
@@ -1781,34 +1881,34 @@ function App() {
                       return filteredHistory
                         .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))
                         .map(todo => (
-                        <div key={todo.id} className={`mypage-routine-item history-item ${editingId === todo.id ? 'editing' : ''}`}>
-                          {editingId === todo.id ? (
-                            <div className="edit-container" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
-                              <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
-                              <div className="edit-days-row">
-                                {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-                                  <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => setEditDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}>{d}</button>
-                                ))}
+                          <div key={todo.id} className={`mypage-routine-item history-item ${editingId === todo.id ? 'editing' : ''}`}>
+                            {editingId === todo.id ? (
+                              <div className="edit-container" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
+                                <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
+                                <div className="edit-days-row">
+                                  {['월', '화', '수', '목', '금', '토', '일'].map(d => (
+                                    <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => setEditDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}>{d}</button>
+                                  ))}
+                                </div>
+                                <div className="input-helper-row edit-mode">
+                                  <label className="holiday-toggle">
+                                    <input type="checkbox" checked={editExcludeHolidays} onChange={e => setEditExcludeHolidays(e.target.checked)} />
+                                    <span>공휴일/주말 제외</span>
+                                  </label>
+                                  <button type="button" className="clear-form-btn" onClick={() => resetEditForm()}>초기화</button>
+                                </div>
+                                <div className="edit-actions">
+                                  <button className="save-btn" onClick={() => saveEdit(todo.id)}>저장</button>
+                                  <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
+                                </div>
                               </div>
-                              <div className="input-helper-row edit-mode">
-                                <label className="holiday-toggle">
-                                  <input type="checkbox" checked={editExcludeHolidays} onChange={e => setEditExcludeHolidays(e.target.checked)} />
-                                  <span>공휴일/주말 제외</span>
-                                </label>
-                                <button type="button" className="clear-form-btn" onClick={() => resetEditForm()}>초기화</button>
-                              </div>
-                              <div className="edit-actions">
-                                <button className="save-btn" onClick={() => saveEdit(todo.id)}>저장</button>
-                                <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
-                              </div>
-                            </div>
-                          ) : (
-                             <div className="todo-content-row">
+                            ) : (
+                              <div className="todo-content-row">
                                 <div className="todo-info">
                                   <span className="todo-text-premium">
-                                    {todo.scheduleMode === 'schedule' ? '📅 ' : 
-                                     todo.scheduleMode === 'memo' ? (todo.text.includes('아이디어') ? '💡 ' : '📝 ') : 
-                                     '🔄 '}{todo.text}
+                                    {todo.scheduleMode === 'schedule' ? '📅 ' :
+                                      todo.scheduleMode === 'memo' ? (todo.text.includes('아이디어') ? '💡 ' : '📝 ') :
+                                        '🔄 '}{todo.text}
                                   </span>
                                   <div className="todo-meta-premium">
                                     <span className="todo-time-badge">{formatTime(todo.time)}</span>
@@ -1821,10 +1921,10 @@ function App() {
                                   <button className="action-btn edit" onClick={() => startEdit(todo)}>수정</button>
                                   <button className="action-btn delete" onClick={() => handleAdminDeleteTodo(todo.id, todo.text)}>삭제</button>
                                 </div>
-                             </div>
-                          )}
-                        </div>
-                      ));
+                              </div>
+                            )}
+                          </div>
+                        ));
                     })()}
                   </div>
                 </div>
@@ -1929,9 +2029,9 @@ function App() {
                             <div className="todo-content-row">
                               <div className="todo-info">
                                 <span className="todo-text-premium">
-                                  {todo.scheduleMode === 'schedule' ? '📅 ' : 
-                                   todo.scheduleMode === 'memo' ? (todo.text.includes('아이디어') ? '💡 ' : '📝 ') : 
-                                   '🔄 '}{todo.text}
+                                  {todo.scheduleMode === 'schedule' ? '📅 ' :
+                                    todo.scheduleMode === 'memo' ? (todo.text.includes('아이디어') ? '💡 ' : '📝 ') :
+                                      '🔄 '}{todo.text}
                                 </span>
                                 <div className="todo-meta-premium">
                                   <span className="todo-time-badge">{formatTime(todo.time)}</span>
@@ -1962,6 +2062,68 @@ function App() {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="voice-alarm-setting" style={{ marginTop: '20px', padding: '0 20px' }}>
+                    <div
+                      className={`voice-alarm-toggle ${useVoiceAlarm ? 'active' : ''}`}
+                      onClick={() => {
+                        const next = !useVoiceAlarm;
+                        setUseVoiceAlarm(next);
+                        if (next) speakText("음성 알람이 활성화되었습니다.", selectedVoiceName);
+                      }}
+                      style={{
+                        padding: '15px',
+                        background: useVoiceAlarm ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                        border: `1px solid ${useVoiceAlarm ? '#38bdf8' : 'rgba(255,255,255,0.1)'}`,
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        marginBottom: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '1.2rem' }}>🎙️</span>
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.95rem' }}>음성 알람 읽어주기</p>
+                          <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.6 }}>알람 시 내용과 확언을 읽어줍니다.</p>
+                        </div>
+                      </div>
+                      <div className={`toggle-switch ${useVoiceAlarm ? 'on' : ''}`} />
+                    </div>
+
+                    {useVoiceAlarm && (
+                      <div className="voice-selector-container" style={{ padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>
+                        <p style={{ margin: '0 0 8px 0', fontSize: '0.8rem', opacity: 0.7 }}>🗣️ 목소리 선택</p>
+                        <select
+                          value={selectedVoiceName}
+                          onChange={(e) => {
+                            setSelectedVoiceName(e.target.value);
+                            speakText("새로운 목소리가 설정되었습니다.", e.target.value);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '10px',
+                            background: '#1e293b',
+                            color: 'white',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            fontSize: '0.9rem'
+                          }}
+                        >
+                          <option value="">기본 음성</option>
+                          {voices
+                            .filter(v => v.lang.includes('ko'))
+                            .map(v => (
+                              <option key={v.name} value={v.name}>{v.name}</option>
+                            ))
+                          }
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2237,7 +2399,7 @@ function App() {
               const hasScheduleKeyword = t.text && t.text.includes('일정');
               const isSchedule = t.scheduleMode === 'schedule' || hasScheduleKeyword;
               const isMemo = t.scheduleMode === 'memo' || (t.text && (t.text.includes('메모') || t.text.includes('아이디어')));
-              
+
               const createdDate = t.createdAt ? new Date(Number(t.createdAt)).toLocaleDateString() : '';
               const isCreatedToday = createdDate === new Date().toLocaleDateString();
 
@@ -2379,9 +2541,9 @@ function App() {
                             )}
                           </div>
                           <span className="todo-text">
-                            {todo.scheduleMode === 'schedule' ? '📅 ' : 
-                             todo.scheduleMode === 'memo' ? (todo.text.includes('아이디어') ? '💡 ' : '📝 ') : 
-                             '🔄 '}{todo.text}
+                            {todo.scheduleMode === 'schedule' ? '📅 ' :
+                              todo.scheduleMode === 'memo' ? (todo.text.includes('아이디어') ? '💡 ' : '📝 ') :
+                                '🔄 '}{todo.text}
                           </span>
                         </div>
                       </div>
