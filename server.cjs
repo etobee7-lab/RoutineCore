@@ -189,7 +189,8 @@ async function initDB() {
                 username VARCHAR(50) DEFAULT 'master',
                 createdAt BIGINT,
                 lastNotifiedDate VARCHAR(20) DEFAULT NULL,
-                priority INT DEFAULT 0
+                priority INT DEFAULT 0,
+                activatedWeek VARCHAR(20) DEFAULT NULL
             )
         `);
 
@@ -203,7 +204,8 @@ async function initDB() {
                 username VARCHAR(50) DEFAULT 'master',
                 createdAt BIGINT,
                 category VARCHAR(50) DEFAULT 'general',
-                isPinned BOOLEAN DEFAULT FALSE
+                isPinned BOOLEAN DEFAULT FALSE,
+                activatedWeek VARCHAR(20) DEFAULT NULL
             )
         `);
 
@@ -426,16 +428,29 @@ app.patch('/api/affirmations/:id', async (req, res) => {
 app.get('/api/todos', async (req, res) => {
     try {
         const username = req.query.username || 'master';
+        const includeInactive = req.query.includeInactive === 'true'; // 주간 관리자용
+
+        // [남개발 부장] 현재 주차 코드를 생성 (월요일 날짜 기준)
+        const now = new Date();
+        now.setHours(0,0,0,0);
+        const day = now.getDay();
+        const diff = now.getDate() - (day === 0 ? 6 : day - 1);
+        const monday = new Date(now.setDate(diff));
+        const currentWeekStr = monday.toISOString().split('T')[0];
+
         // [남개발 부장] 신규 분리 테이블 3종을 통합하여 프런트엔드에 전달
+        // 루틴은 항상 포함, 일정/메모는 활성화된 주차만 포함 (includeInactive가 true면 전체 포함)
         const query = `
-            SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'routine' as scheduleMode, username, createdAt, lastNotifiedDate FROM routines WHERE username = ?
+            SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'routine' as scheduleMode, username, createdAt, lastNotifiedDate, NULL as activatedWeek FROM routines WHERE username = ?
             UNION ALL
-            SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'schedule' as scheduleMode, username, createdAt, lastNotifiedDate FROM schedules WHERE username = ?
+            SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'schedule' as scheduleMode, username, createdAt, lastNotifiedDate, activatedWeek FROM schedules 
+            WHERE username = ? AND (? = 'true' OR activatedWeek = ?)
             UNION ALL
-            SELECT id, text, time, completed, days, false as excludeHolidays, false as isFailed, 'memo' as scheduleMode, username, createdAt, NULL as lastNotifiedDate FROM memos WHERE username = ?
+            SELECT id, text, time, completed, days, false as excludeHolidays, false as isFailed, 'memo' as scheduleMode, username, createdAt, NULL as lastNotifiedDate, activatedWeek FROM memos 
+            WHERE username = ? AND (? = 'true' OR activatedWeek = ?)
             ORDER BY time ASC
         `;
-        const [rows] = await pool.query(query, [username, username, username]);
+        const [rows] = await pool.query(query, [username, username, String(includeInactive), currentWeekStr, username, String(includeInactive), currentWeekStr]);
         res.json(rows);
     } catch (err) {
         console.error("GET error:", err.message);
@@ -514,6 +529,33 @@ app.delete('/api/todos/:id', async (req, res) => {
         res.status(204).send();
     } catch (err) {
         console.error("DELETE error:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ===== 주간 일정 활성화 API =====
+app.post('/api/todos/activate-weekly', async (req, res) => {
+    try {
+        const { username, ids, weekStr } = req.body;
+        if (!username || !ids || !weekStr) return res.status(400).json({ error: "필수 정보 누락" });
+
+        // [남개발 부장] 선택된 아이템들의 activatedWeek를 현재 주로 업데이트
+        // 먼저 해당 사용자의 모든 일정/메모의 활성화를 해당 주차에 대해 초기화(선택 해제 대응)할지는 정책에 따라 결정
+        // 여기서는 명시적으로 전달된 ID들만 해당 주로 활성화하고, 나머지는 NULL 처리하거나 유지
+        
+        // 1. 해당 주차에 대해 모든 일정/메모 초기화 (선택된 것만 다시 활성화하기 위해)
+        await pool.query("UPDATE schedules SET activatedWeek = NULL WHERE username = ? AND activatedWeek = ?", [username, weekStr]);
+        await pool.query("UPDATE memos SET activatedWeek = NULL WHERE username = ? AND activatedWeek = ?", [username, weekStr]);
+
+        if (ids.length > 0) {
+            const placeholders = ids.map(() => "?").join(",");
+            await pool.query(`UPDATE schedules SET activatedWeek = ? WHERE id IN (${placeholders})`, [weekStr, ...ids]);
+            await pool.query(`UPDATE memos SET activatedWeek = ? WHERE id IN (${placeholders})`, [weekStr, ...ids]);
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Activate error:", err.message);
         res.status(500).json({ error: err.message });
     }
 });

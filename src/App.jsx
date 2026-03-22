@@ -172,7 +172,13 @@ function ScrollPicker({ options, value, onChange, unit }) {
   // 초기 위치 설정 (중앙 섹션의 선택된 값으로)
   useEffect(() => {
     if (scrollRef.current) {
-      const selectedIndex = options.indexOf(value);
+      // [남개발 부장] 리스트에 없는 값(1분 단위)이 들어오면 근사치 인덱스 활용
+      const valInt = parseInt(value);
+      const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
+      let selectedIndex = options.indexOf(value);
+      if (selectedIndex === -1) selectedIndex = options.indexOf(roundedVal);
+      if (selectedIndex === -1) selectedIndex = 0;
+
       scrollRef.current.scrollTop = (middleStart + selectedIndex) * itemHeight;
     }
   }, []);
@@ -182,10 +188,14 @@ function ScrollPicker({ options, value, onChange, unit }) {
     if (scrollRef.current) {
       const currentScrollTop = scrollRef.current.scrollTop;
       const currentIndex = Math.round(currentScrollTop / itemHeight) % options.length;
-      const targetIndex = options.indexOf(value);
+      
+      const valInt = parseInt(value);
+      const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
+      let targetIndex = options.indexOf(value);
+      if (targetIndex === -1) targetIndex = options.indexOf(roundedVal);
+      if (targetIndex === -1) targetIndex = 0;
 
       if (currentIndex !== targetIndex) {
-        // 현재 보고 있는 세그먼트를 유지하면서 인덱스만 이동
         const currentSegment = Math.floor(currentScrollTop / (options.length * itemHeight));
         scrollRef.current.scrollTop = (currentSegment * options.length + targetIndex) * itemHeight;
       }
@@ -208,7 +218,13 @@ function ScrollPicker({ options, value, onChange, unit }) {
 
     const index = Math.round(scrollTop / itemHeight) % options.length;
     const selectedValue = options[index];
-    if (selectedValue && selectedValue !== value) {
+
+    // [남개발 부장] 핵심 로직: 현재 값이 1분 단위(예: 07)인 경우, 
+    // 선택된 값(05)이 현재 값의 반올림값(05)과 같다면 강제 업데이트 방지 (1분 데이터 보존)
+    const valInt = parseInt(value);
+    const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
+
+    if (selectedValue && selectedValue !== value && selectedValue !== roundedVal) {
       onChange(selectedValue);
     }
   };
@@ -237,6 +253,16 @@ function ScrollPicker({ options, value, onChange, unit }) {
     </div>
   );
 }
+
+// [남개발 부장] 주간 일정 관리를 위한 주차 계산 유틸리티 (월요일 기준)
+const getWeekStr = () => {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const day = now.getDay();
+  const diff = now.getDate() - (day === 0 ? 6 : day - 1);
+  const monday = new Date(now.setDate(diff));
+  return monday.toISOString().split('T')[0];
+};
 
 // 차트 상수 및 유틸리티
 const radius = 140;
@@ -421,6 +447,8 @@ function App() {
   const [listFilter, setListFilter] = useState('all') // 'all' | 'routine' | 'schedule'
   const [listSort, setListSort] = useState('asc') // 'asc' | 'desc'
   const [prevIsSchedule, setPrevIsSchedule] = useState(null) // 이전 입력값의 일정 여부 추적용
+  const [allCandidates, setAllCandidates] = useState([]) // 주간 관리자용 전체 후보 리스트
+  const [weeklySelectedIds, setWeeklySelectedIds] = useState(new Set()) // 주간 관리자 선택 IDs
 
 
   // 입력창 내용에 따른 자동 모드 전환
@@ -596,6 +624,21 @@ function App() {
     return `${y}년 ${m}월 ${d}일 (${dow}) ${ampmText} ${h12}:${mm}:${ss}`;
   };
 
+  // [남개발 부장] 매주 월요일 아침 안내 시스템
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const now = new Date();
+    if (now.getDay() === 1 && now.getHours() < 12) { // 월요일 오전
+      const lastNotice = localStorage.getItem('lastWeeklyNotice');
+      if (lastNotice !== getWeekStr()) {
+        setTimeout(() => {
+          alert("📋 새로운 한 주가 시작되었습니다!\n마이페이지 '주간 일정 관리'에서 이번 주에 수행할 일들을 선발해 주세요.");
+          localStorage.setItem('lastWeeklyNotice', getWeekStr());
+        }, 2000);
+      }
+    }
+  }, [isAuthenticated]);
+
   const [isListening, setIsListening] = useState(false); // 음성 인식 상태
   const [showSuccessRoom, setShowSuccessRoom] = useState(false); // 성공의 방 모달
   const [ownedItems, setOwnedItems] = useState([]); // 보유한 아이템 리스트
@@ -621,6 +664,40 @@ function App() {
         });
       });
     } catch (e) { console.error("Fetch failed", e); }
+  };
+
+  const fetchAllCandidates = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch(`${API_URL}?username=${currentUser}&includeInactive=true`);
+      const data = await res.json();
+      // 일정과 메모만 후보로 추출
+      const candidates = data.filter(t => t.scheduleMode !== 'routine');
+      setAllCandidates(candidates);
+      
+      // 현재 주차에 이미 활성화된 아이템들을 미리 체크
+      const activeIds = candidates.filter(c => c.activatedWeek === getWeekStr()).map(c => c.id);
+      setWeeklySelectedIds(new Set(activeIds));
+    } catch (e) { console.error("Fetch candidates failed", e); }
+  };
+
+  const handleActivateWeekly = async () => {
+    try {
+      const ids = Array.from(weeklySelectedIds);
+      const res = await fetch(`${API_BASE}/api/todos/activate-weekly`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: currentUser,
+          ids,
+          weekStr: getWeekStr()
+        })
+      });
+      if (res.ok) {
+        alert("이번 주 전술 지도가 성공적으로 배포되었습니다! 🛡️");
+        fetchTodos();
+      }
+    } catch (e) { console.error("Activation failed", e); }
   };
 
   const fetchProfile = async () => {
@@ -1003,7 +1080,7 @@ function App() {
     }
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
-      console.log("Voice Input:", transcript);
+      console.log("[VOICE] Recognized Text:", transcript);
       parseAndSetTodo(transcript);
     };
 
@@ -1047,12 +1124,13 @@ function App() {
       }
     }
 
-    // 3. 분 추출 (음성 입력은 1분 단위 정밀도 유지)
-    const minuteMatch = text.match(/(\d+)분/);
+    // 3. 분 추출 (음성 입력은 1분 단위 정밀도 유지) - 공백 대응 및 정밀도 강화
+    const minuteMatch = text.match(/(\d+)\s*분/);
     if (minuteMatch) {
       const mRaw = parseInt(minuteMatch[1]);
       const m = String(mRaw % 60).padStart(2, '0');
       parsedTime.minute = m;
+      console.log("[VOICE] Parsed Minute:", m);
       setMinute(m);
     } else if (text.includes('반')) {
       parsedTime.minute = '30';
@@ -1145,7 +1223,7 @@ function App() {
       const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTodo) });
       if (!res.ok) throw new Error("서버 저장 실패");
 
-      alert("예약이 완료되었습니다! ✅");
+      alert(`[${formatTime(time)}] ${inputValue}\n예약이 완료되었습니다! ✅`);
       resetForm(true); // 제출 후 초기화 모드로 호출
       setListFilter('all'); // 추가 후에는 전체 리스트를 보여줌
     } catch (e) {
@@ -1840,6 +1918,7 @@ function App() {
 
               <div className="mypage-tabs no-scrollbar">
                 <button className={`mypage-tab ${myPageTab === 'alarm' ? 'active' : ''}`} onClick={() => setMyPageTab('alarm')}><span className="tab-icon-small">⏰</span> 알람 관리</button>
+                <button className={`mypage-tab ${myPageTab === 'weekly' ? 'active' : ''}`} onClick={() => { setMyPageTab('weekly'); fetchAllCandidates(); }}><span className="tab-icon-small">📅</span> 주간 일정 관리</button>
                 <button className={`mypage-tab ${myPageTab === 'password' ? 'active' : ''}`} onClick={() => setMyPageTab('password')}><span className="tab-icon-small">🔒</span> 비번 변경</button>
                 <button className={`mypage-tab ${myPageTab === 'avatar' ? 'active' : ''}`} onClick={() => setMyPageTab('avatar')}><span className="tab-icon-small">👤</span> 아바타 관리</button>
                 <button className={`mypage-tab ${myPageTab === 'reservation' ? 'active' : ''}`} onClick={() => setMyPageTab('reservation')}><span className="tab-icon-small">📋</span> 루틴 관리</button>
@@ -1849,6 +1928,62 @@ function App() {
             </div>
 
             <div className="mypage-content-area no-scrollbar">
+              {myPageTab === 'weekly' && (
+                <div className="mypage-section weekly-section">
+                  <p className="mypage-label">📅 이번 주 정예 일정/메모 선발</p>
+                  <p className="mypage-subtitle" style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '-10px 20px 20px 20px' }}>
+                    매주 월요일, 이번 주에 집중할 항목들을 선택해 활성화하세요.<br/>
+                    루틴은 고정이며, 일정과 메모만 여기서 관리합니다.
+                  </p>
+                  
+                  <div className="weekly-manage-controls" style={{ padding: '0 20px 15px 20px', display: 'flex', gap: '10px' }}>
+                    <button className="activate-all-btn" onClick={handleActivateWeekly} style={{ flex: 1, padding: '12px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold' }}>
+                      이번 주 전술 배치 (선택 완료) 🚀
+                    </button>
+                  </div>
+
+                  <div className="mypage-routine-list no-scrollbar">
+                    {allCandidates.length === 0 ? (
+                      <div className="empty-state">
+                        <span className="empty-icon">📝</span>
+                        <p>선발할 후보가 없습니다.<br/>먼저 일정을 등록해 주세요.</p>
+                      </div>
+                    ) : (
+                      allCandidates.map(todo => (
+                        <div key={todo.id} className={`mypage-routine-item ${weeklySelectedIds.has(todo.id) ? 'active-weekly' : ''}`} 
+                             onClick={() => {
+                               setWeeklySelectedIds(prev => {
+                                 const next = new Set(prev);
+                                 if (next.has(todo.id)) next.delete(todo.id);
+                                 else next.add(todo.id);
+                                 return next;
+                               });
+                             }}
+                             style={{ cursor: 'pointer', border: weeklySelectedIds.has(todo.id) ? '2px solid #6366f1' : '1px solid rgba(255,255,255,0.05)' }}
+                        >
+                          <div className="todo-content-row">
+                            <div className="todo-info" style={{ opacity: weeklySelectedIds.has(todo.id) ? 1 : 0.5 }}>
+                              <span className="todo-text-premium">
+                                {todo.scheduleMode === 'schedule' ? '📅 ' : '📝 '}{todo.text}
+                              </span>
+                              <div className="todo-meta-premium">
+                                <span className="todo-time-badge">{formatTime(todo.time)}</span>
+                                <span className="todo-days-tag">{todo.days}</span>
+                              </div>
+                            </div>
+                            <div className="selection-indicator">
+                              <div className={`custom-checkbox ${weeklySelectedIds.has(todo.id) ? 'checked' : ''}`} 
+                                   style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid #6366f1', background: weeklySelectedIds.has(todo.id) ? '#6366f1' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {weeklySelectedIds.has(todo.id) && <span style={{ color: '#fff', fontSize: '14px' }}>✓</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
               {myPageTab === 'history' && (
                 <div className="mypage-section history-section">
                   <p className="mypage-label">🔍 전체 기록 검색 (루틴/일정/메모)</p>
