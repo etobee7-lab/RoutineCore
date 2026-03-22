@@ -264,6 +264,16 @@ const getWeekStr = () => {
   return monday.toISOString().split('T')[0];
 };
 
+// [남개발 부장] 포인트 기반 성취 등급 추출 (3번 제안)
+const getLevelInfo = (points) => {
+  if (points < 1000) return { title: '루틴의 시작', color: '#94a3b8' };
+  if (points < 5000) return { title: '루틴의 성장', color: '#6366f1' };
+  if (points < 15000) return { title: '루틴의 정착', color: '#a855f7' };
+  if (points < 30000) return { title: '고요한 지배자', color: '#f43f5e' };
+  if (points < 60000) return { title: '시간의 설계자', color: '#fbbf24' };
+  return { title: '자정의 전설', color: '#f59e0b' };
+};
+
 // 차트 상수 및 유틸리티
 const radius = 140;
 const center = 180;
@@ -1137,10 +1147,20 @@ function App() {
       setMinute('30');
     }
 
-    // 4. 업무명 추출 (시간 표현을 최대한 깔끔하게 제거)
+    // 4. 모드 판별 (메모/일정/루틴)
+    if (text.includes('메모') || text.includes('노트') || text.includes('기록')) {
+      setScheduleMode('memo');
+    } else if (text.includes('일정') || text.includes('스케줄') || text.includes('약속')) {
+      setScheduleMode('schedule');
+    } else {
+      setScheduleMode('routine'); // 기본은 루틴
+    }
+
+    // 5. 업무명 추출 (시간 표현과 모드 키워드를 최대한 깔끔하게 제거)
     taskName = text.replace(/오전|오후|아침|점심|저녁|밤|새벽/g, '')
       .replace(/(\d+시)\s*(\d+분)?\s*에?/g, '')
       .replace(/한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시/g, '')
+      .replace(/메모|일정|스케줄|노트|기록|약속/g, '')
       .replace(/예약|등록|해줘|해|줘/g, '')
       .trim();
 
@@ -1897,7 +1917,7 @@ function App() {
       {showMyPage && (
         <div className="modal-overlay full-screen" onClick={() => { setShowMyPage(false); setPwMessage(''); setPwError(''); }}>
           <div className="affirmation-modal full-screen" onClick={e => e.stopPropagation()}>
-            <div className="modal-sticky-area" style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#0f172a', paddingBottom: '10px' }}>
+            <div className="modal-sticky-area" style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#0f172a' }}>
               <div className="modal-header">
                 <div className="modal-header-left">
                   <h2>마이페이지</h2>
@@ -1905,29 +1925,87 @@ function App() {
                 </div>
                 <button className="modal-close-x" onClick={() => { setShowMyPage(false); setPwMessage(''); setPwError(''); }}>✕</button>
               </div>
+            </div>
 
+            <div className="mypage-content-area no-scrollbar">
               <div className="mypage-user-info">
                 <div className="mypage-avatar-big">
                   <RenderAvatar avatar={userAvatar} />
                 </div>
                 <div className="mypage-user-meta">
-                  <p className="mypage-username">{currentUser}</p>
-                  <div className="mypage-points-badge">💰 {userPoints.toLocaleString()} Points</div>
+                  <p className="mypage-username">{currentUser} 님</p>
+                  <div className="mypage-user-badges" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div className="mypage-level-badge" style={{ 
+                      fontSize: '0.7rem', 
+                      padding: '2px 8px', 
+                      borderRadius: '8px', 
+                      background: getLevelInfo(userPoints).color,
+                      color: '#fff',
+                      fontWeight: '900'
+                    }}>
+                      🏆 {getLevelInfo(userPoints).title}
+                    </div>
+                    <div className="mypage-points-badge">💰 {userPoints.toLocaleString()} Points</div>
+                  </div>
                 </div>
               </div>
 
-              <div className="mypage-tabs no-scrollbar">
-                <button className={`mypage-tab ${myPageTab === 'alarm' ? 'active' : ''}`} onClick={() => setMyPageTab('alarm')}><span className="tab-icon-small">⏰</span> 알람 관리</button>
-                <button className={`mypage-tab ${myPageTab === 'weekly' ? 'active' : ''}`} onClick={() => { setMyPageTab('weekly'); fetchAllCandidates(); }}><span className="tab-icon-small">📅</span> 주간 일정 관리</button>
-                <button className={`mypage-tab ${myPageTab === 'password' ? 'active' : ''}`} onClick={() => setMyPageTab('password')}><span className="tab-icon-small">🔒</span> 비번 변경</button>
-                <button className={`mypage-tab ${myPageTab === 'avatar' ? 'active' : ''}`} onClick={() => setMyPageTab('avatar')}><span className="tab-icon-small">👤</span> 아바타 관리</button>
-                <button className={`mypage-tab ${myPageTab === 'reservation' ? 'active' : ''}`} onClick={() => setMyPageTab('reservation')}><span className="tab-icon-small">📋</span> 루틴 관리</button>
-                <button className={`mypage-tab ${myPageTab === 'history' ? 'active' : ''}`} onClick={() => setMyPageTab('history')}><span className="tab-icon-small">🔍</span> 과거 기록 검색</button>
-                <button className={`mypage-tab ${myPageTab === 'tips' ? 'active' : ''}`} onClick={() => setMyPageTab('tips')}><span className="tab-icon-small">💡</span> 이용 팁</button>
+              {/* [남개발 부장] 성공 대시보드 - 여기는 스크롤됨 */}
+              <div className="mypage-dashboard-box" style={{ margin: '0 20px 20px 20px', padding: '15px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '15px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold' }}>🎯 이번 주 주간 점유율</span>
+                  <span style={{ fontSize: '0.9rem', color: '#6366f1', fontWeight: '900' }}>
+                    {(() => {
+                      const currentWeek = getWeekStr();
+                      const weekItems = todos.filter(t => 
+                        t.scheduleMode === 'routine' || t.activatedWeek === currentWeek
+                      );
+                      const completed = weekItems.filter(t => t.completed).length;
+                      const total = weekItems.length;
+                      return total > 0 ? `${Math.round((completed / total) * 100)}%` : '0%';
+                    })()}
+                  </span>
+                </div>
+                <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ 
+                    height: '100%', 
+                    background: 'linear-gradient(90deg, #6366f1, #a855f7)', 
+                    width: (() => {
+                      const currentWeek = getWeekStr();
+                      const weekItems = todos.filter(t => t.scheduleMode === 'routine' || t.activatedWeek === currentWeek);
+                      const completed = weekItems.filter(t => t.completed).length;
+                      const total = weekItems.length;
+                      return total > 0 ? `${(completed / total) * 100}%` : '0%';
+                    })(),
+                    transition: 'width 0.5s ease'
+                  }}></div>
+                </div>
               </div>
-            </div>
 
-            <div className="mypage-content-area no-scrollbar">
+              {/* [남개발 부장] 탭 메뉴 - 여기는 다시 스티키하게 헤더 바로 밑에 붙게 처리 */}
+              <div className="mypage-tabs-sticky-wrap" style={{ position: 'sticky', top: '55px', zIndex: 999, background: '#0f172a', paddingBottom: '15px', paddingTop: '5px' }}>
+                <div className="mypage-tabs-container" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '0 20px 0 20px' }}>
+                  <div className="tab-group-section">
+                    <p className="tab-group-label" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', marginBottom: '8px', paddingLeft: '5px' }}>🛡️ 주간 전략실 (PLANS)</p>
+                    <div className="mypage-tabs no-scrollbar" style={{ padding: 0 }}>
+                      <button className={`mypage-tab ${myPageTab === 'weekly' ? 'active' : ''}`} onClick={() => { setMyPageTab('weekly'); fetchAllCandidates(); }}><span className="tab-icon-small">📅</span> 주간 관리</button>
+                      <button className={`mypage-tab ${myPageTab === 'reservation' ? 'active' : ''}`} onClick={() => setMyPageTab('reservation')}><span className="tab-icon-small">🔄</span> 루틴</button>
+                      <button className={`mypage-tab ${myPageTab === 'history' ? 'active' : ''}`} onClick={() => setMyPageTab('history')}><span className="tab-icon-small">🔍</span> 검색</button>
+                    </div>
+                  </div>
+
+                  <div className="tab-group-section" style={{ display: myPageTab === 'alarm' || myPageTab === 'tips' || myPageTab === 'avatar' || myPageTab === 'password' ? 'block' : 'none' }}>
+                    <p className="tab-group-label" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', marginBottom: '8px', paddingLeft: '5px' }}>⚙️ 기타 설정 (ETC)</p>
+                    <div className="mypage-tabs no-scrollbar" style={{ padding: 0 }}>
+                      <button className={`mypage-tab ${myPageTab === 'alarm' ? 'active' : ''}`} onClick={() => setMyPageTab('alarm')}><span className="tab-icon-small">⏰</span> 알람</button>
+                      <button className={`mypage-tab ${myPageTab === 'tips' ? 'active' : ''}`} onClick={() => setMyPageTab('tips')}><span className="tab-icon-small">💡</span> 팁</button>
+                      <button className={`mypage-tab ${myPageTab === 'avatar' ? 'active' : ''}`} onClick={() => setMyPageTab('avatar')}><span className="tab-icon-small">👤</span> 아바타</button>
+                      <button className={`mypage-tab ${myPageTab === 'password' ? 'active' : ''}`} onClick={() => setMyPageTab('password')}><span className="tab-icon-small">🔒</span> 비번</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {myPageTab === 'weekly' && (
                 <div className="mypage-section weekly-section">
                   <p className="mypage-label">📅 이번 주 정예 일정/메모 선발</p>
@@ -1944,13 +2022,13 @@ function App() {
 
                   <div className="mypage-routine-list no-scrollbar">
                     {allCandidates.length === 0 ? (
-                      <div className="empty-state">
-                        <span className="empty-icon">📝</span>
-                        <p>선발할 후보가 없습니다.<br/>먼저 일정을 등록해 주세요.</p>
+                      <div className="empty-state" style={{ padding: '40px 0' }}>
+                        <span className="empty-icon" style={{ fontSize: '3rem', opacity: 0.3 }}>🏛️</span>
+                        <p style={{ marginTop: '10px' }}>아직 선발할 후보가 없습니다.<br/>할 일을 먼저 등록해 보세요!</p>
                       </div>
                     ) : (
                       allCandidates.map(todo => (
-                        <div key={todo.id} className={`mypage-routine-item ${weeklySelectedIds.has(todo.id) ? 'active-weekly' : ''}`} 
+                        <div key={todo.id} className={`mypage-routine-item card-style ${weeklySelectedIds.has(todo.id) ? 'active-weekly' : ''}`} 
                              onClick={() => {
                                setWeeklySelectedIds(prev => {
                                  const next = new Set(prev);
@@ -1959,24 +2037,48 @@ function App() {
                                  return next;
                                });
                              }}
-                             style={{ cursor: 'pointer', border: weeklySelectedIds.has(todo.id) ? '2px solid #6366f1' : '1px solid rgba(255,255,255,0.05)' }}
+                             style={{ 
+                               cursor: 'pointer', 
+                               background: 'rgba(255,255,255,0.03)',
+                               borderRadius: '16px',
+                               padding: '18px',
+                               marginBottom: '12px',
+                               border: weeklySelectedIds.has(todo.id) ? '2px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
+                               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                               transform: weeklySelectedIds.has(todo.id) ? 'scale(1.02)' : 'scale(1)'
+                             }}
                         >
                           <div className="todo-content-row">
-                            <div className="todo-info" style={{ opacity: weeklySelectedIds.has(todo.id) ? 1 : 0.5 }}>
-                              <span className="todo-text-premium">
-                                {todo.scheduleMode === 'schedule' ? '📅 ' : '📝 '}{todo.text}
-                              </span>
-                              <div className="todo-meta-premium">
-                                <span className="todo-time-badge">{formatTime(todo.time)}</span>
-                                <span className="todo-days-tag">{todo.days}</span>
+                            <div className="todo-info" style={{ opacity: weeklySelectedIds.has(todo.id) ? 1 : 0.6 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                <span style={{ 
+                                  fontSize: '0.65rem', 
+                                  padding: '2px 8px', 
+                                  borderRadius: '6px', 
+                                  background: todo.scheduleMode === 'schedule' ? '#3b82f6' : '#10b981',
+                                  color: '#fff',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {todo.scheduleMode === 'schedule' ? 'SCHEDULE' : 'MEMO'}
+                                </span>
+                                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{formatTime(todo.time)}</span>
+                              </div>
+                              <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#fff' }}>{todo.text}</span>
+                              <div style={{ marginTop: '8px', display: 'flex', gap: '10px' }}>
+                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>🗓️ {todo.days}</span>
                               </div>
                             </div>
                             <div className="selection-indicator">
                               <div className={`custom-checkbox ${weeklySelectedIds.has(todo.id) ? 'checked' : ''}`} 
-                                   style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid #6366f1', background: weeklySelectedIds.has(todo.id) ? '#6366f1' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {weeklySelectedIds.has(todo.id) && <span style={{ color: '#fff', fontSize: '14px' }}>✓</span>}
+                                   style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid #6366f1', background: weeklySelectedIds.has(todo.id) ? '#6366f1' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: weeklySelectedIds.has(todo.id) ? '0 0 10px rgba(99, 102, 241, 0.4)' : 'none' }}>
+                                {weeklySelectedIds.has(todo.id) && <span style={{ color: '#fff', fontSize: '16px' }}>✓</span>}
                               </div>
                             </div>
+                          </div>
+                          {/* [남개발 부장] 주간 관리에서도 수정/삭제가 가능하도록 조치 */}
+                          <div className="item-actions" style={{ marginTop: '12px', display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
+                            <button className="action-btn edit" onClick={(e) => { e.stopPropagation(); startEdit(todo); }} style={{ fontSize: '0.75rem', padding: '6px 14px' }}>수정</button>
+                            <button className="action-btn delete" onClick={(e) => { e.stopPropagation(); handleAdminDeleteTodo(todo.id, todo.text); }} style={{ fontSize: '0.75rem', padding: '6px 14px' }}>삭제</button>
                           </div>
                         </div>
                       ))
@@ -2006,9 +2108,9 @@ function App() {
 
                       if (filteredHistory.length === 0) {
                         return (
-                          <div className="empty-state">
-                            <span className="empty-icon">📂</span>
-                            <p>검색 결과가 없습니다.</p>
+                          <div className="empty-state" style={{ padding: '60px 0' }}>
+                            <span className="empty-icon" style={{ fontSize: '4rem', opacity: 0.2 }}>🔍</span>
+                            <p style={{ marginTop: '15px', color: '#64748b' }}>"{historySearchTerm}"에 대한 검색 결과가 없습니다.</p>
                           </div>
                         );
                       }
@@ -2016,36 +2118,45 @@ function App() {
                       return filteredHistory
                         .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))
                         .map(todo => (
-                          <div key={todo.id} className={`mypage-routine-item history-item ${editingId === todo.id ? 'editing' : ''}`}>
+                          <div key={todo.id} className={`mypage-routine-item card-style history-item ${editingId === todo.id ? 'editing' : ''}`} 
+                             style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '16px', padding: '15px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
                             {editingId === todo.id ? (
-                              <div className="edit-container" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
-                                <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
-                                <div className="edit-days-row">
-                                  {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-                                    <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => setEditDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}>{d}</button>
-                                  ))}
-                                </div>
-                                <div className="input-helper-row edit-mode">
-                                  <label className="holiday-toggle">
-                                    <input type="checkbox" checked={editExcludeHolidays} onChange={e => setEditExcludeHolidays(e.target.checked)} />
-                                    <span>공휴일/주말 제외</span>
-                                  </label>
-                                  <button type="button" className="clear-form-btn" onClick={() => resetEditForm()}>초기화</button>
-                                </div>
-                                <div className="edit-actions">
-                                  <button className="save-btn" onClick={() => saveEdit(todo.id)}>저장</button>
-                                  <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
-                                </div>
-                              </div>
+                                <div className="edit-container" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
+                                 <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
+                                 <div className="edit-days-row">
+                                   {['월', '화', '수', '목', '금', '토', '일'].map(d => (
+                                     <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => setEditDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}>{d}</button>
+                                   ))}
+                                 </div>
+                                 <div className="input-helper-row edit-mode">
+                                   <label className="holiday-toggle">
+                                     <input type="checkbox" checked={editExcludeHolidays} onChange={e => setEditExcludeHolidays(e.target.checked)} />
+                                     <span>공휴일/주말 제외</span>
+                                   </label>
+                                   <button type="button" className="clear-form-btn" onClick={() => resetEditForm()}>초기화</button>
+                                 </div>
+                                 <div className="edit-actions">
+                                   <button className="save-btn" onClick={() => saveEdit(todo.id)}>저장</button>
+                                   <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
+                                 </div>
+                               </div>
                             ) : (
                               <div className="todo-content-row">
                                 <div className="todo-info">
-                                  <span className="todo-text-premium">
-                                    {todo.scheduleMode === 'schedule' ? '📅 ' :
-                                      todo.scheduleMode === 'memo' ? (todo.text.includes('아이디어') ? '💡 ' : '📝 ') :
-                                        '🔄 '}{todo.text}
-                                  </span>
-                                  <div className="todo-meta-premium">
+                                  <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                    <span style={{ 
+                                      fontSize: '0.62rem', 
+                                      padding: '2px 6px', 
+                                      borderRadius: '4px', 
+                                      background: todo.scheduleMode === 'routine' ? '#818cf8' : (todo.scheduleMode === 'schedule' ? '#3b82f6' : '#10b981'),
+                                      color: '#fff',
+                                      fontWeight: 'bold'
+                                    }}>
+                                      {todo.scheduleMode.toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#e2e8f0' }}>{todo.text}</span>
+                                  <div className="todo-meta-premium" style={{ marginTop: '6px' }}>
                                     <span className="todo-time-badge">{formatTime(todo.time)}</span>
                                     {todo.days && <span className="todo-days-tag">{todo.days}</span>}
                                     <span className="todo-date-tag">🗓️ {new Date(Number(todo.createdAt)).toLocaleDateString()}</span>
@@ -2130,16 +2241,22 @@ function App() {
               )}
               {myPageTab === 'reservation' && (
                 <div className="mypage-section">
-                  <p className="mypage-label">📋 예약(루틴/일정) 리스트 관리</p>
+                  <p className="mypage-label">📋 영구 반복 루틴 리스트 관리</p>
                   <div className="mypage-routine-list no-scrollbar">
-                    {todos.length === 0 ? (
-                      <div className="empty-state">
-                        <span className="empty-icon">☕</span>
-                        <p>등록된 일정이 없습니다.</p>
-                      </div>
-                    ) : (
-                      todos.map(todo => (
-                        <div key={todo.id} className={`mypage-routine-item ${editingId === todo.id ? 'editing' : ''}`}>
+                    {(() => {
+                      const routinesOnly = todos.filter(t => t.scheduleMode === 'routine');
+                      if (routinesOnly.length === 0) {
+                        return (
+                          <div className="empty-state" style={{ padding: '60px 0' }}>
+                            <span className="empty-icon" style={{ fontSize: '4rem', opacity: 0.2 }}>🔄</span>
+                            <p style={{ marginTop: '15px' }}>등록된 루틴이 없습니다.<br/>성공의 기둥을 세워보세요!</p>
+                          </div>
+                        );
+                      }
+
+                      return routinesOnly.map(todo => (
+                        <div key={todo.id} className={`mypage-routine-item card-style ${editingId === todo.id ? 'editing' : ''}`}
+                             style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '16px', padding: '15px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
                           {editingId === todo.id ? (
                             <div className="edit-container" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
                               <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
@@ -2163,12 +2280,20 @@ function App() {
                           ) : (
                             <div className="todo-content-row">
                               <div className="todo-info">
-                                <span className="todo-text-premium">
-                                  {todo.scheduleMode === 'schedule' ? '📅 ' :
-                                    todo.scheduleMode === 'memo' ? (todo.text.includes('아이디어') ? '💡 ' : '📝 ') :
-                                      '🔄 '}{todo.text}
-                                </span>
-                                <div className="todo-meta-premium">
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                  <span style={{ 
+                                    fontSize: '0.62rem', 
+                                    padding: '2px 6px', 
+                                    borderRadius: '4px', 
+                                    background: '#818cf8',
+                                    color: '#fff',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    ROUTINE
+                                  </span>
+                                </div>
+                                <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#e2e8f0' }}>{todo.text}</span>
+                                <div className="todo-meta-premium" style={{ marginTop: '6px' }}>
                                   <span className="todo-time-badge">{formatTime(todo.time)}</span>
                                   <span className="todo-days-tag">{todo.days}</span>
                                 </div>
@@ -2180,8 +2305,8 @@ function App() {
                             </div>
                           )}
                         </div>
-                      ))
-                    )}
+                      ));
+                    })()}
                   </div>
                 </div>
               )}
