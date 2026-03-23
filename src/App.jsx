@@ -447,6 +447,7 @@ function App() {
   };
 
   const [todos, setTodos] = useState([])
+  const [lastAddedId, setLastAddedId] = useState(null) // [남개발 부장] 방금 추가된 항목을 추적하기 위한 센서!
   const [inputValue, setInputValue] = useState('')
   const [ampm, setAmpm] = useState(defaultT.ampm)
   const [hour, setHour] = useState(defaultT.hour)
@@ -455,6 +456,7 @@ function App() {
   const [excludeHolidays, setExcludeHolidays] = useState(true) // 기본 체크됨
   const [scheduleMode, setScheduleMode] = useState('routine') // 'routine' | 'schedule'
   const [listFilter, setListFilter] = useState('all') // 'all' | 'routine' | 'schedule'
+  const [isWeeklyView, setIsWeeklyView] = useState(false) // [NAM] Weekly Board Mode
   const [listSort, setListSort] = useState('asc') // 'asc' | 'desc'
   const [prevIsSchedule, setPrevIsSchedule] = useState(null) // 이전 입력값의 일정 여부 추적용
   const [allCandidates, setAllCandidates] = useState([]) // 주간 관리자용 전체 후보 리스트
@@ -655,6 +657,20 @@ function App() {
 
   const todosRef = useRef([]);
   useEffect(() => { todosRef.current = todos; }, [todos]);
+
+  // [남개발 부장] 신규 추가 시 자동 스크롤 추적 시스템
+  useEffect(() => {
+    if (lastAddedId) {
+      setTimeout(() => {
+        const el = document.getElementById(`todo-${lastAddedId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // 2초 뒤에 추적 아이디 초기화 (깜빡임 애니메이션 종료 용도)
+          setTimeout(() => setLastAddedId(null), 2500);
+        }
+      }, 150);
+    }
+  }, [todos, lastAddedId]);
 
   const fetchTodos = async () => {
     if (!currentUser) return;
@@ -1073,8 +1089,10 @@ function App() {
     }
 
     const recognition = new SpeechRecognition();
+    const initialInput = inputValue.trim(); // [남개발 부장] 시작 시점의 입력값을 캡처!
+
     recognition.lang = 'ko-KR';
-    recognition.interimResults = false;
+    recognition.interimResults = true; // 실시간 결과 노출 활성화
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => setIsListening(true);
@@ -1088,10 +1106,21 @@ function App() {
     if (window.Notification && window.Notification.permission !== "granted" && window.Notification.permission !== "denied") {
       subscribeUserToPush(currentUser);
     }
+    
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      console.log("[VOICE] Recognized Text:", transcript);
-      parseAndSetTodo(transcript);
+      let interimTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          console.log("[VOICE] Final Text:", transcript);
+          parseAndSetTodo(transcript);
+        } else {
+          interimTranscript += transcript;
+          // [남개발 부장] 기존 내용 + 실시간 인식 내용을 합쳐서 보여드림
+          const combined = initialInput ? `${initialInput} ${interimTranscript}` : interimTranscript;
+          setInputValue(combined);
+        }
+      }
     };
 
     recognition.start();
@@ -1156,15 +1185,27 @@ function App() {
       setScheduleMode('routine'); // 기본은 루틴
     }
 
-    // 5. 업무명 추출 (시간 표현과 모드 키워드를 최대한 깔끔하게 제거)
+    // 5. 업무명 추출 (시간 표현은 제거하되, 모드 키워드는 사용자 의도일 수 있으므로 가급적 보존)
     taskName = text.replace(/오전|오후|아침|점심|저녁|밤|새벽/g, '')
       .replace(/(\d+시)\s*(\d+분)?\s*에?/g, '')
       .replace(/한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시/g, '')
-      .replace(/메모|일정|스케줄|노트|기록|약속/g, '')
+      // .replace(/메모|일정|스케줄|노트|기록|약속/g, '') -> 이 부분을 제거하여 내용을 보존함
       .replace(/예약|등록|해줘|해|줘/g, '')
       .trim();
 
-    setInputValue(taskName);
+    if (!taskName && text) {
+      // 만약 정규식으로 다 지워져버렸다면 원문이라도 넣어줌
+      taskName = text.trim();
+    }
+
+    // [남개발 부장] '이어서 입력' 기능: 기존 내용이 있으면 뒤에 붙여줌
+    setInputValue(prev => {
+      const current = prev.trim();
+      if (!taskName) return current; // 새로 추가할 내용이 없으면 그대로 유지
+      if (!current) return taskName; // 기존 내용이 없으면 새 내용만
+      if (current.includes(taskName)) return current; // 이미 포함된 내용이면 중복 방지
+      return `${current} ${taskName}`;
+    });
   };
 
   const resetForm = (isSubmitted = false) => {
@@ -1245,7 +1286,9 @@ function App() {
 
       alert(`[${formatTime(time)}] ${inputValue}\n예약이 완료되었습니다! ✅`);
       resetForm(true); // 제출 후 초기화 모드로 호출
-      setListFilter('all'); // 추가 후에는 전체 리스트를 보여줌
+      // [남개발 부장] 추가된 항목의 종류(일정/루틴/메모) 탭에 멈춰서 확인 가능하게 함
+      setListFilter(scheduleMode); 
+      setLastAddedId(timestamp); // 방금 추가된 ID를 캡처!
     } catch (e) {
       console.error("Add failed", e);
       alert("등록 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
@@ -2536,7 +2579,7 @@ function App() {
       }
 
 
-      <div className="todo-container schedule-mode">
+      <div className={`todo-container ${scheduleMode}-mode`}>
         <div className="main-sticky-wrapper">
           <div className="app-header-premium">
             <div className="header-topmost-row">
@@ -2694,7 +2737,7 @@ function App() {
                 return listSort === 'asc' ? timeA.localeCompare(timeB) : timeB.localeCompare(timeA);
               })
               .map(todo => (
-                <li key={todo.id} className={`todo-item ${todo.completed ? 'completed' : ''} ${todo.isFailed ? 'failed' : ''} ${editingId === todo.id ? 'editing' : ''}`}>
+                <li key={todo.id} id={`todo-${todo.id}`} className={`todo-item ${todo.completed ? 'completed' : ''} ${todo.isFailed ? 'failed' : ''} ${editingId === todo.id ? 'editing' : ''} ${lastAddedId === todo.id ? 'newly-added' : ''}`}>
                   {editingId === todo.id ? (
                     <div className="edit-container">
                       <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
