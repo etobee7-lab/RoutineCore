@@ -679,8 +679,8 @@ app.post('/api/admin/import', async (req, res) => {
                 await connection.query("DELETE FROM routines");
                 for (const r of routines) {
                     await connection.query(
-                        "INSERT INTO routines (id, text, time, completed, days, excludeHolidays, isFailed, username, createdAt, lastNotifiedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        [r.id, r.text, r.time, r.completed, r.days, r.excludeHolidays, r.isFailed, r.username, r.createdAt, r.lastNotifiedDate]
+                        "INSERT INTO routines (id, text, time, completed, days, excludeHolidays, isFailed, username, createdAt, lastNotifiedDate, activatedWeek, startDate, endDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [r.id, r.text, r.time, r.completed, r.days, r.excludeHolidays, r.isFailed, r.username, r.createdAt, r.lastNotifiedDate, r.activatedWeek, r.startDate, r.endDate]
                     );
                 }
             }
@@ -688,8 +688,8 @@ app.post('/api/admin/import', async (req, res) => {
                 await connection.query("DELETE FROM schedules");
                 for (const s of schedules) {
                     await connection.query(
-                        "INSERT INTO schedules (id, text, time, completed, days, excludeHolidays, isFailed, username, createdAt, lastNotifiedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        [s.id, s.text, s.time, s.completed, s.days, s.excludeHolidays, s.isFailed, s.username, s.createdAt, s.lastNotifiedDate]
+                        "INSERT INTO schedules (id, text, time, completed, days, excludeHolidays, isFailed, username, createdAt, lastNotifiedDate, priority, activatedWeek, startDate, endDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [s.id, s.text, s.time, s.completed, s.days, s.excludeHolidays, s.isFailed, s.username, s.createdAt, s.lastNotifiedDate, s.priority, s.activatedWeek, s.startDate, s.endDate]
                     );
                 }
             }
@@ -697,8 +697,8 @@ app.post('/api/admin/import', async (req, res) => {
                 await connection.query("DELETE FROM memos");
                 for (const m of memos) {
                     await connection.query(
-                        "INSERT INTO memos (id, text, time, completed, days, username, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        [m.id, m.text, m.time, m.completed, m.days, m.username, m.createdAt]
+                        "INSERT INTO memos (id, text, time, completed, days, username, createdAt, category, isPinned, activatedWeek, startDate, endDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [m.id, m.text, m.time, m.completed, m.days, m.username, m.createdAt, m.category, m.isPinned, m.activatedWeek, m.startDate, m.endDate]
                     );
                 }
             }
