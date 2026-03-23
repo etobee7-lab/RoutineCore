@@ -151,6 +151,8 @@ async function initDB() {
                 text VARCHAR(255) NOT NULL,
                 time VARCHAR(10),
                 completed BOOLEAN DEFAULT FALSE,
+                startDate VARCHAR(20) DEFAULT NULL,
+                endDate VARCHAR(20) DEFAULT NULL,
                 days VARCHAR(100),
                 excludeHolidays BOOLEAN DEFAULT FALSE,
                 isFailed BOOLEAN DEFAULT FALSE,
@@ -168,6 +170,8 @@ async function initDB() {
                 text VARCHAR(255) NOT NULL,
                 time VARCHAR(10),
                 completed BOOLEAN DEFAULT FALSE,
+                startDate VARCHAR(20) DEFAULT NULL,
+                endDate VARCHAR(20) DEFAULT NULL,
                 days VARCHAR(100),
                 excludeHolidays BOOLEAN DEFAULT FALSE,
                 isFailed BOOLEAN DEFAULT FALSE,
@@ -183,6 +187,8 @@ async function initDB() {
                 text VARCHAR(255) NOT NULL,
                 time VARCHAR(10),
                 completed BOOLEAN DEFAULT FALSE,
+                startDate VARCHAR(20) DEFAULT NULL,
+                endDate VARCHAR(20) DEFAULT NULL,
                 days VARCHAR(100),
                 excludeHolidays BOOLEAN DEFAULT FALSE,
                 isFailed BOOLEAN DEFAULT FALSE,
@@ -200,6 +206,8 @@ async function initDB() {
                 text VARCHAR(255) NOT NULL,
                 time VARCHAR(10),
                 completed BOOLEAN DEFAULT FALSE,
+                startDate VARCHAR(20) DEFAULT NULL,
+                endDate VARCHAR(20) DEFAULT NULL,
                 days VARCHAR(100),
                 username VARCHAR(50) DEFAULT 'master',
                 createdAt BIGINT,
@@ -237,6 +245,13 @@ async function initDB() {
                 createdAt BIGINT
             )
         `);
+
+        // 기존 테이블 구조 보강 (Migration)
+        const tablesToUpdate = ['todos', 'routines', 'schedules', 'memos'];
+        for (const table of tablesToUpdate) {
+            try { await pool.query(`ALTER TABLE ${table} ADD COLUMN startDate VARCHAR(20) DEFAULT NULL`); } catch (e) { }
+            try { await pool.query(`ALTER TABLE ${table} ADD COLUMN endDate VARCHAR(20) DEFAULT NULL`); } catch (e) { }
+        }
 
         // 인덱싱 최적화
         try { await pool.query(`CREATE INDEX idx_routines_alert ON routines (time, completed, lastNotifiedDate)`); } catch (e) { }
@@ -430,27 +445,29 @@ app.get('/api/todos', async (req, res) => {
         const username = req.query.username || 'master';
         const includeInactive = req.query.includeInactive === 'true'; // 주간 관리자용
 
-        // [남개발 부장] 현재 주차 코드를 생성 (월요일 날짜 기준)
-        const now = new Date();
-        now.setHours(0,0,0,0);
-        const day = now.getDay();
-        const diff = now.getDate() - (day === 0 ? 6 : day - 1);
-        const monday = new Date(now.setDate(diff));
-        const currentWeekStr = monday.toISOString().split('T')[0];
+        // [남개발 부장] 현재 주차 코드를 생성 (한국 시간 기준 local YYYY-MM-DD)
+        const getLocalWeekStr = (date) => {
+            const d = new Date(date);
+            d.setHours(d.getHours() + 9); // KST 보정
+            d.setHours(0,0,0,0);
+            const day = d.getDay();
+            const diff = d.getDate() - (day === 0 ? 6 : day - 1);
+            const monday = new Date(d.setDate(diff));
+            return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+        };
+        const currentWeekStr = getLocalWeekStr(new Date());
 
         // [남개발 부장] 신규 분리 테이블 3종을 통합하여 프런트엔드에 전달
         // 루틴은 항상 포함, 일정/메모는 활성화된 주차만 포함 (includeInactive가 true면 전체 포함)
         const query = `
-            SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'routine' as scheduleMode, username, createdAt, lastNotifiedDate, NULL as activatedWeek FROM routines WHERE username = ?
+            SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'routine' as scheduleMode, username, createdAt, lastNotifiedDate, NULL as activatedWeek, startDate, endDate FROM routines WHERE username = ?
             UNION ALL
-            SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'schedule' as scheduleMode, username, createdAt, lastNotifiedDate, activatedWeek FROM schedules 
-            WHERE username = ? AND (? = 'true' OR activatedWeek = ?)
+            SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'schedule' as scheduleMode, username, createdAt, lastNotifiedDate, activatedWeek, startDate, endDate FROM schedules WHERE username = ?
             UNION ALL
-            SELECT id, text, time, completed, days, false as excludeHolidays, false as isFailed, 'memo' as scheduleMode, username, createdAt, NULL as lastNotifiedDate, activatedWeek FROM memos 
-            WHERE username = ? AND (? = 'true' OR activatedWeek = ?)
+            SELECT id, text, time, completed, days, false as excludeHolidays, false as isFailed, 'memo' as scheduleMode, username, createdAt, NULL as lastNotifiedDate, activatedWeek, startDate, endDate FROM memos WHERE username = ?
             ORDER BY time ASC
         `;
-        const [rows] = await pool.query(query, [username, username, String(includeInactive), currentWeekStr, username, String(includeInactive), currentWeekStr]);
+        const [rows] = await pool.query(query, [username, username, username]);
         res.json(rows);
     } catch (err) {
         console.error("GET error:", err.message);
@@ -463,20 +480,32 @@ app.post('/api/todos', async (req, res) => {
         const { id, text, time, completed, isFailed, days, excludeHolidays, scheduleMode, username, lastNotifiedDate } = req.body;
         const user = username || 'master';
         const mode = scheduleMode || 'routine';
-        
+
+        // [남개발 부장] 신규 추가 시 현재 주차 코드를 생성 (한국 시간 기준 local YYYY-MM-DD)
+        const getLocalWeekStr = (date) => {
+            const d = new Date(date);
+            d.setHours(d.getHours() + 9); // KST 보정
+            d.setHours(0,0,0,0);
+            const day = d.getDay();
+            const diff = d.getDate() - (day === 0 ? 6 : day - 1);
+            const monday = new Date(d.setDate(diff));
+            return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+        };
+        const currentWeekStr = getLocalWeekStr(new Date());
+
         let targetTable = 'routines';
         if (mode === 'schedule') targetTable = 'schedules';
         else if (mode === 'memo') targetTable = 'memos';
 
         if (targetTable === 'memos') {
           await pool.query(
-              `INSERT INTO ${targetTable} (id, text, time, completed, days, username, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [id, text, time, !!completed, days, user, Date.now()]
+              `INSERT INTO ${targetTable} (id, text, time, completed, days, username, createdAt, startDate, endDate, activatedWeek) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [id, text, time, !!completed, days, user, Date.now(), req.body.startDate || null, req.body.endDate || null, currentWeekStr]
           );
         } else {
           await pool.query(
-              `INSERT INTO ${targetTable} (id, text, time, completed, isFailed, days, excludeHolidays, username, createdAt, lastNotifiedDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [id, text, time, !!completed, !!isFailed, days, !!excludeHolidays, user, Date.now(), lastNotifiedDate || null]
+              `INSERT INTO ${targetTable} (id, text, time, completed, isFailed, days, excludeHolidays, username, createdAt, lastNotifiedDate, startDate, endDate, activatedWeek) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [id, text, time, !!completed, !!isFailed, days, !!excludeHolidays, user, Date.now(), lastNotifiedDate || null, req.body.startDate || null, req.body.endDate || null, currentWeekStr]
           );
         }
         res.status(201).json({ success: true });
@@ -501,7 +530,7 @@ app.patch('/api/todos/:id', async (req, res) => {
         const fields = [];
         const values = [];
         for (const [key, value] of Object.entries(updates)) {
-            if (['text', 'time', 'completed', 'isFailed', 'days', 'excludeHolidays', 'lastNotifiedDate'].includes(key)) {
+            if (['text', 'time', 'completed', 'isFailed', 'days', 'excludeHolidays', 'lastNotifiedDate', 'startDate', 'endDate'].includes(key)) {
                 fields.push(`${key} = ?`);
                 values.push(['completed', 'excludeHolidays', 'isFailed'].includes(key) ? !!value : value);
             }

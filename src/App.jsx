@@ -461,6 +461,11 @@ function App() {
   const [prevIsSchedule, setPrevIsSchedule] = useState(null) // 이전 입력값의 일정 여부 추적용
   const [allCandidates, setAllCandidates] = useState([]) // 주간 관리자용 전체 후보 리스트
   const [weeklySelectedIds, setWeeklySelectedIds] = useState(new Set()) // 주간 관리자 선택 IDs
+  
+  // [남개발 부장] 기간 선택 캘린더 엔진용 센서 장착!
+  const [showCalendar, setShowCalendar] = useState(false); // 달력 노출 여부
+  const [rangeStart, setRangeStart] = useState(null);       // 시작일
+  const [rangeEnd, setRangeEnd] = useState(null);           // 종료일
 
 
   // 입력창 내용에 따른 자동 모드 전환
@@ -671,6 +676,35 @@ function App() {
       }, 150);
     }
   }, [todos, lastAddedId]);
+
+  // [남개발 부장] 기간 선택 시 해당하는 요일들을 자동으로 추출하는 지능형 도우미
+  const getDaysInRange = (start, end) => {
+    if (!start || !end) return [];
+    const s = new Date(start);
+    const e = new Date(end);
+    const days = new Set();
+    const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+    
+    let curr = new Date(s);
+    while (curr <= e) {
+      days.add(DAY_NAMES[curr.getDay()]);
+      curr.setDate(curr.getDate() + 1);
+      if (days.size === 7) break; // 모든 요일이 다 차면 루프 조기 종료
+    }
+    return Array.from(days);
+  };
+
+  // [남개발 부장] 날짜 비교를 위한 표준 포맷 도우미 (YYYY-MM-DD)
+  const toStdDateStr = (d) => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
+
+  // [남개발 부장] 캘린더 오픈 시 빈 시작일을 '오늘'로 자동 고정!
+  const handleOpenCalendar = () => {
+    if (!rangeStart) {
+      const todayStr = toStdDateStr(new Date());
+      setRangeStart(todayStr);
+    }
+    setShowCalendar(true);
+  };
 
   const fetchTodos = async () => {
     if (!currentUser) return;
@@ -1212,41 +1246,26 @@ function App() {
     // React 이벤트 객체가 인자로 전달될 경우를 대비해 boolean 체크
     const isActuallySubmitted = isSubmitted === true;
     const nextT = getDefaultTime();
+    const DAYS_KOR = ['일', '월', '화', '수', '목', '금', '토'];
+    const todayKor = DAYS_KOR[new Date().getDay()];
+    
     if (isActuallySubmitted) {
       setInputValue(''); // 예약 후에는 입력창 초기화
       setExcludeHolidays(true); // 주말 제외 체크
       setSelectedDays(['월', '화', '수', '목', '금']); // 월~금 선택
     } else {
-      // setInputValue(''); // 초기화 버튼 클릭 시에는 글 유지 (이전 요청)
+      // [남개발 부장] 초기화 버튼 클릭 시 "오늘 요일"만 활성화!
       setExcludeHolidays(false);
-      setSelectedDays([]); // 요일 선택 해제
+      setSelectedDays([todayKor]); 
     }
     setAmpm(nextT.ampm);
     setHour(nextT.hour);
     setMinute(nextT.minute);
     setScheduleMode('routine');
     setPrevIsSchedule(null);
+    setRangeStart(null); // 기간 초기화
+    setRangeEnd(null);
   };
-
-
-  // 알림 권한 요청 및 오디오 잠금 해제
-  useEffect(() => {
-    if ("Notification" in window) {
-      if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-        Notification.requestPermission();
-      }
-    }
-
-    // 사용자 상호작용 시 AudioContext 활성화
-    const handleInteraction = () => {
-      if (audioContext && audioContext.state === 'suspended') {
-        audioContext.resume();
-      }
-    };
-    window.addEventListener('click', handleInteraction);
-    return () => window.removeEventListener('click', handleInteraction);
-  }, []);
-
 
   const addTodo = async () => {
     if (!inputValue.trim()) {
@@ -1268,7 +1287,6 @@ function App() {
         if (!window.confirm(`중복된 시간(${formatTime(time)})에 '${duplicate.text}' 일정이 이미 있습니다. 추가하시겠습니까?`)) return;
       }
 
-      // eslint-disable-next-line react-hooks/purity
       const timestamp = Date.now();
       const newTodo = {
         id: timestamp,
@@ -1279,38 +1297,44 @@ function App() {
         scheduleMode: scheduleMode,
         completed: false,
         createdAt: timestamp,
-        username: currentUser
+        username: currentUser,
+        startDate: rangeStart,
+        endDate: rangeEnd
       };
       const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTodo) });
       if (!res.ok) throw new Error("서버 저장 실패");
 
       alert(`[${formatTime(time)}] ${inputValue}\n예약이 완료되었습니다! ✅`);
-      resetForm(true); // 제출 후 초기화 모드로 호출
-      // [남개발 부장] 추가된 항목의 종류(일정/루틴/메모) 탭에 멈춰서 확인 가능하게 함
+      resetForm(true); 
       setListFilter(scheduleMode); 
-      setLastAddedId(timestamp); // 방금 추가된 ID를 캡처!
+      setLastAddedId(timestamp);
     } catch (e) {
       console.error("Add failed", e);
-      alert("등록 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+      alert("등록 중 오류가 발생했습니다.");
     }
     fetchTodos();
   };
 
+
   const startEdit = (todo) => {
     setEditingId(todo.id);
-    setEditValue(todo.text);
-    setEditDays(todo.days ? todo.days.split(',') : []);
+    setEditValue(todo.text || '');
+    const days = todo.days ? todo.days.split(',') : [];
+    setEditDays(days);
     setEditExcludeHolidays(!!todo.excludeHolidays);
-
-    // 시간 파싱 (HH:MM -> 오전/오후 HH:MM)
-    if (todo.time && todo.time.includes(':')) {
-      let [h, m] = todo.time.split(':').map(Number);
-      const ampmLabel = h < 12 ? '오전' : '오후';
-      const displayHour = h % 12 || 12;
-      setEditAmpm(ampmLabel);
-      setEditHour(String(displayHour).padStart(2, '0'));
-      setEditMinute(String(m).padStart(2, '0'));
-    }
+    
+    const [h, m] = (todo.time || '09:00').split(':');
+    let hourNum = parseInt(h);
+    const p = hourNum >= 12 ? '오후' : '오전';
+    setEditAmpm(p);
+    if (hourNum > 12) hourNum -= 12;
+    if (hourNum === 0) hourNum = 12;
+    setEditHour(String(hourNum).padStart(2, '0'));
+    setEditMinute(m);
+    
+    // [남개발 부장] 수정 시 기존 기간 정보를 캘린더 센서에 미리 동기화!
+    setRangeStart(todo.startDate || null);
+    setRangeEnd(todo.endDate || null);
   };
 
   const resetEditForm = () => {
@@ -1320,6 +1344,8 @@ function App() {
     setEditAmpm('오전');
     setEditHour('09');
     setEditMinute('00');
+    setRangeStart(null);
+    setRangeEnd(null);
   };
 
   const saveEdit = async (id) => {
@@ -1339,7 +1365,9 @@ function App() {
             text: editValue,
             time: formattedTime, // 수정된 시간 반영
             days: editDays.join(','),
-            excludeHolidays: editExcludeHolidays
+            excludeHolidays: editExcludeHolidays,
+            startDate: rangeStart,
+            endDate: rangeEnd
           })
         });
 
@@ -1370,36 +1398,37 @@ function App() {
   };
 
   const toggleTodo = async (todo) => {
+    // [남개발 부장] 중복 클릭 방지 락은 유지하되, 화면에 "로딩" 표시를 하지 않아 속도감을 높임
     const todoIdStr = String(todo.id);
     if (togglingIdsRef.current.has(todoIdStr)) return;
 
-    updateTogglingIds(prev => new Set([...prev, todoIdStr]));
+    // [남개발 부장] 즉각적인 반응을 위해 화면 상태부터 업데이트 (Optimistic UI)
+    const newStatus = !todo.completed;
+    setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: newStatus } : t));
+
+    // 내부적으로만 락을 검 (UI 갱신 없이)
+    togglingIdsRef.current.add(todoIdStr);
     const today = new Date().toLocaleDateString();
 
     try {
-      // 로딩 상태가 너무 빨리 지나가지 않도록 최소 1초 대기 (사용자 피드백 확인용)
-      const [response] = await Promise.all([
-        fetch(`${API_URL}/${todo.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ completed: !todo.completed, lastNotifiedDate: today })
-        }),
-        new Promise(resolve => setTimeout(resolve, 1000))
-      ]);
+      const response = await fetch(`${API_URL}/${todo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: newStatus, lastNotifiedDate: today })
+      });
 
-      if (response.ok) {
-        await fetchTodos();
-      } else {
+      if (!response.ok) {
+        // 서버 저장 실패 시에만 화면 상태 롤백
+        setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: !newStatus } : t));
         console.error("Toggle failed on server");
       }
+      // [남개발 부장] 전체 fetch는 조용히 수행 (화면을 다시 그리지 않아도 됨)
     } catch (e) {
+      setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: !newStatus } : t));
       console.error("Fetch error during toggle:", e);
     } finally {
-      updateTogglingIds(prev => {
-        const next = new Set(prev);
-        next.delete(todoIdStr);
-        return next;
-      });
+      // 락(Lock) 해제
+      togglingIdsRef.current.delete(todoIdStr);
     }
   };
 
@@ -1960,7 +1989,7 @@ function App() {
       {showMyPage && (
         <div className="modal-overlay full-screen" onClick={() => { setShowMyPage(false); setPwMessage(''); setPwError(''); }}>
           <div className="affirmation-modal full-screen" onClick={e => e.stopPropagation()}>
-            <div className="modal-sticky-area" style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#0f172a' }}>
+            <div className="modal-sticky-area" style={{ position: 'sticky', top: '0px', zIndex: 1000, background: '#0f172a' }}>
               <div className="modal-header">
                 <div className="modal-header-left">
                   <h2>마이페이지</h2>
@@ -2652,14 +2681,17 @@ function App() {
                 ))}
               </div>
               <div className="input-helper-row">
-                <label className="holiday-toggle">
-                  <input type="checkbox" checked={excludeHolidays} onChange={e => {
-                    setExcludeHolidays(e.target.checked);
-                    if (e.target.checked) setSelectedDays(['월', '화', '수', '목', '금']);
-                    else setSelectedDays(['월', '화', '수', '목', '금', '토', '일']);
-                  }} />
-                  <span>주말 제외</span>
-                </label>
+                <div className="left-options">
+                  <label className="holiday-toggle">
+                    <input type="checkbox" checked={excludeHolidays} onChange={e => {
+                      setExcludeHolidays(e.target.checked);
+                      if (e.target.checked) setSelectedDays(['월', '화', '수', '목', '금']);
+                      else setSelectedDays(['월', '화', '수', '목', '금', '토', '일']);
+                    }} />
+                    <span>주말 제외</span>
+                  </label>
+                  <button type="button" className="calendar-picker-btn" title="날짜 선택" onClick={handleOpenCalendar}>📅</button>
+                </div>
                 <button type="button" className="clear-form-btn" onClick={() => resetForm(false)}>초기화</button>
               </div>
             </div>
@@ -2708,15 +2740,18 @@ function App() {
 
               if (listFilter === 'all') {
                 const showRoutine = isScheduledToday || !t.days;
-                const showTodayScheduleOrMemo = (isSchedule || isMemo) && isCreatedToday;
-                return (t.scheduleMode === 'routine' || !t.scheduleMode) ? showRoutine : showTodayScheduleOrMemo;
+                // [남개발 부장] 오늘 생성되었거나, "아직 완료되지 않은(남아 있는)" 일정/메모는 이월해서 보여줌
+                const showEffectiveScheduleOrMemo = (isSchedule || isMemo) && (isCreatedToday || !t.completed);
+                return (t.scheduleMode === 'routine' || !t.scheduleMode) ? showRoutine : showEffectiveScheduleOrMemo;
               } else if (listFilter === 'routine') {
                 const isRoutine = (t.scheduleMode === 'routine' || !t.scheduleMode) && !hasScheduleKeyword && !isMemo;
                 return isRoutine && (isScheduledToday || !t.days);
               } else if (listFilter === 'schedule') {
-                return isSchedule && isCreatedToday;
+                // 일정 탭에서도 미완료 건은 계속 노출
+                return isSchedule && (isCreatedToday || !t.completed);
               } else if (listFilter === 'memo') {
-                return isMemo && isCreatedToday;
+                // 메모 탭에서도 미완료 건은 계속 노출
+                return isMemo && (isCreatedToday || !t.completed);
               }
               return false;
             });
@@ -2747,22 +2782,25 @@ function App() {
                         ))}
                       </div>
                       <div className="input-helper-row edit-mode">
-                        <label className="holiday-toggle">
-                          <input
-                            type="checkbox"
-                            checked={editExcludeHolidays}
-                            onChange={e => {
-                              const isChecked = e.target.checked;
-                              setEditExcludeHolidays(isChecked);
-                              if (isChecked) {
-                                setEditDays(['월', '화', '수', '목', '금']); // 평일만 선택
-                              } else {
-                                setEditDays(['월', '화', '수', '목', '금', '토', '일']); // 전체 선택
-                              }
-                            }}
-                          />
-                          <span>공휴일/주말 제외</span>
-                        </label>
+                        <div className="left-options">
+                          <label className="holiday-toggle">
+                            <input
+                              type="checkbox"
+                              checked={editExcludeHolidays}
+                              onChange={e => {
+                                const isChecked = e.target.checked;
+                                setEditExcludeHolidays(isChecked);
+                                if (isChecked) {
+                                  setEditDays(['월', '화', '수', '목', '금']); // 평일만 선택
+                                } else {
+                                  setEditDays(['월', '화', '수', '목', '금', '토', '일']); // 전체 선택
+                                }
+                              }}
+                            />
+                            <span>주말 제외</span>
+                          </label>
+                          <button type="button" className="calendar-picker-btn" title="날짜 선택" onClick={handleOpenCalendar}>📅</button>
+                        </div>
                         <button type="button" className="clear-form-btn" onClick={() => { resetEditForm(); }}>초기화</button>
                       </div>
 
@@ -2785,7 +2823,11 @@ function App() {
                     </div>
                   ) : (
                     <>
-                      <div className="todo-left">
+                      <div className="todo-left" onClick={(e) => {
+                        // 체크박스 자체 클릭 시에는 중복 실행 방지
+                        if (e.target.type === 'checkbox') return;
+                        toggleTodo(todo);
+                      }} style={{ cursor: 'pointer' }}>
                         <input type="checkbox" checked={todo.completed} onChange={() => toggleTodo(todo)} className="todo-checkbox" />
                         <div className="content-group">
                           <div className="todo-meta">
@@ -2858,7 +2900,108 @@ function App() {
           })()
           }
         </ul>
+
       </div>
+
+      {/* [남개발 부장] 기간 선택 캘린더 모달 엔진 - 최상위 프래그먼트로 탈출! */}
+      {showCalendar && (
+        <div className="date-picker-overlay scroll-style" onClick={() => setShowCalendar(false)}>
+          <div className="date-picker-modal" onClick={e => e.stopPropagation()}>
+            <div className="calendar-header">
+              <h3>📅 기간 선택 (시작 ~ 종료)</h3>
+              <button className="close-cal-btn" onClick={() => setShowCalendar(false)}>✕</button>
+            </div>
+
+            <div className="calendar-grid">
+              {(() => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = now.getMonth();
+                const firstDay = new Date(year, month, 1).getDay();
+                const lastDate = new Date(year, month + 1, 0).getDate();
+                const days = [];
+                
+                // 빈 칸
+                for (let i = 0; i < firstDay; i++) days.push(null);
+                // 날짜
+                for (let i = 1; i <= lastDate; i++) days.push(new Date(year, month, i));
+
+
+
+                return (
+                  <>
+                    {['일', '월', '화', '수', '목', '금', '토'].map(d => <div key={d} className="calendar-weekday">{d}</div>)}
+                    {days.map((d, i) => {
+                      if (!d) return <div key={`empty-${i}`} className="calendar-day-empty"></div>;
+                      const dateStr = toStdDateStr(d);
+                      const isToday = dateStr === toStdDateStr(new Date());
+                      const isStart = rangeStart === dateStr;
+                      const isEnd = rangeEnd === dateStr;
+                      const isInRange = rangeStart && rangeEnd && dateStr > rangeStart && dateStr < rangeEnd;
+
+                      return (
+                        <div
+                          key={dateStr}
+                          className={`calendar-day ${isToday ? 'today' : ''} ${isStart ? 'start' : ''} ${isEnd ? 'end' : ''} ${isInRange ? 'in-range' : ''}`}
+                          onClick={() => {
+                            // [남개발 부장] 시작일이 고정되어 있으므로 클릭하는 즉시 종료일로 간주!
+                            const currentD = new Date(d);
+                            const startD = new Date(rangeStart);
+                            
+                            if (currentD < startD) {
+                              // 만약 시작일보다 앞쪽을 누르면 시작일을 그날로 옮김 (유연성 확보)
+                              setRangeStart(dateStr);
+                              setRangeEnd(null);
+                            } else {
+                              setRangeEnd(dateStr);
+                            }
+                          }}
+                        >
+                          {d.getDate()}
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              })()}
+            </div>
+
+            {rangeStart && (
+              <div className="calendar-info-card">
+                <div className="task-preview-row">
+                  <span className="task-emoji">📌</span>
+                  <div className="task-main-info">
+                    <span className="task-text-preview">{(editingId ? editValue : inputValue) || '(일정 내용을 입력해주세요)'}</span>
+                    <span className="task-time-preview">⏰ {(editingId ? editAmpm : ampm)} {(editingId ? editHour : hour)}:{(editingId ? editMinute : minute)}</span>
+                  </div>
+                </div>
+
+                <div className="range-summary">
+                  <span className="date-badge start">{rangeStart}</span>
+                  <span className="arrow">➜</span>
+                  <span className="date-badge end">{rangeEnd || '종료일 선택'}</span>
+                </div>
+                {rangeStart && rangeEnd && (
+                  <button className="confirm-range-btn" onClick={() => {
+                    // [남개발 부장] 기간에 해당하는 요일들을 자동으로 추출하여 UI에 즉시 반영!
+                    const autoDays = getDaysInRange(rangeStart, rangeEnd);
+                    if (editingId) {
+                      setEditDays(autoDays);
+                      setEditExcludeHolidays(false); // 수동 보정을 위해 체크 해제
+                    } else {
+                      setSelectedDays(autoDays);
+                      setExcludeHolidays(false);
+                    }
+                    
+                    alert(`[설정완료] "${editingId ? editValue : inputValue}" 일정을\n${rangeStart} ~ ${rangeEnd} 기간으로 확정하며\n요일은 [${autoDays.join(', ')}]으로 자동 설정되었습니다.`);
+                    setShowCalendar(false);
+                  }}>이 기간으로 확정</button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
