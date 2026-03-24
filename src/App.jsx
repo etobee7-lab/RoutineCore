@@ -1327,14 +1327,20 @@ function App() {
 
   const addTodo = async () => {
     let finalValue = inputValue.trim();
+
+    // [남개발 팀장] 강력한 시간 정보 제거 필터 (7시 54분 등 파편 완벽 소거)🛡️
+    const powerfulFilter = /(오전|오후|아침|점심|저녁|밤|새벽|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|반|예약|등록|해줘|해|줘)/g;
     
-    // [남개발 팀장] 최종 저장 시 한 번 더 시간 정보 필터링 (수동 타이핑 대응)
-    const timeKeywords = /(오전|오후|아침|점심|저녁|밤|새벽|(\d+)\s*시|(\d+)\s*분|반)/g;
-    if (timeKeywords.test(finalValue)) {
-      let cleaned = finalValue.replace(timeKeywords, '').replace(/\s+/g, ' ').trim();
-      if (cleaned) {
-        finalValue = cleaned;
-      }
+    // 반복적으로 모든 매칭 지우기
+    let cleaned = finalValue;
+    while(powerfulFilter.test(cleaned)) {
+       cleaned = cleaned.replace(powerfulFilter, '');
+    }
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+    // 다 지웠더니 아무것도 안 남으면(예: "7시 3분") 원문을 그대로 쓰는 보험 정책
+    if (cleaned) {
+      finalValue = cleaned;
     }
 
     if (!finalValue) {
