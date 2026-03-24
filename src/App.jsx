@@ -479,7 +479,7 @@ function App() {
   const [rangeEnd, setRangeEnd] = useState(null);           // 종료일
 
 
-  // 입력창 내용에 따른 자동 모드 전환
+  // [남개발 팀장] 지능형 모드 감지 엔진 (대표님 지시: 기본=일정, 루틴/메모는 키워드 필수)
   useEffect(() => {
     const text = inputValue.trim();
     if (!text) {
@@ -487,21 +487,19 @@ function App() {
       return;
     }
 
-    const scheduleKeywords = ['일정'];
-    const memoKeywords = ['메모', '아이디어'];
-    const isSchedule = scheduleKeywords.some(keyword => text.includes(keyword));
-    const isMemo = memoKeywords.some(keyword => text.includes(keyword));
+    const isRoutine = text.includes('루틴');
+    const isMemo = text.includes('메모');
 
-    // 모드 분류(루틴/일정/메모) 자동 전환
-    if (isSchedule) {
-      setScheduleMode('schedule');
+    // 우선순위 판별 및 디폴트 설정 (기본=일정)
+    if (isRoutine) {
+      setScheduleMode('routine');
     } else if (isMemo) {
       setScheduleMode('memo');
     } else {
-      setScheduleMode('routine');
+      setScheduleMode('schedule'); // [남개발 팀장] 일정 단어가 없어도 기본값은 일정!
     }
 
-    setPrevIsSchedule(isSchedule || isMemo);
+    setPrevIsSchedule(true); // 기본이 일정이므로 true로 유지
   }, [inputValue]);
 
 
