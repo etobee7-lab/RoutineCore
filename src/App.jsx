@@ -248,17 +248,22 @@ function ScrollPicker({ options, value, onChange, unit }) {
   return (
     <div className="picker-column">
       <div className="picker-scroll-container" ref={scrollRef} onScroll={handleScroll}>
-        <div className="picker-padding-top" style={{ height: '15px' }} />
-        {extendedOptions.map((opt, idx) => (
-          <div
-            key={`${opt}-${idx}`}
-            className={`picker-item ${value === opt ? 'active' : ''}`}
-            onClick={() => handleClick(idx)}
-          >
-            {opt}{unit}
-          </div>
-        ))}
-        <div className="picker-padding-bottom" style={{ height: '15px' }} />
+        <div className="picker-padding-top" style={{ height: '30px' }} />
+        {extendedOptions.map((opt, idx) => {
+          const isStandard = options.includes(opt); // 원래 5분 단위 눈금인지 확인
+          const isActive = value === opt;
+          return (
+            <div
+              key={`${opt}-${idx}`}
+              className={`picker-item ${isActive ? 'active' : ''} ${!isStandard ? 'precision-mode' : ''}`}
+              onClick={() => handleClick(idx)}
+              style={!isStandard && isActive ? { color: '#fbbf24', fontWeight: 'bold' } : {}}
+            >
+              {opt}{isActive && !isStandard ? '★' : unit}
+            </div>
+          );
+        })}
+        <div className="picker-padding-bottom" style={{ height: '30px' }} />
       </div>
       <div className="picker-selection-overlay" />
     </div>
