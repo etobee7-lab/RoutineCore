@@ -1170,62 +1170,63 @@ function App() {
   };
 
   const parseAndSetTodo = (text) => {
-    // 아주 간단한 자연어 파싱 (예: "아침 9시에 회의")
+    // [남개발 팀장] 지능형 자연어 음성 파서 V2 (대표님 지시사항 전격 반영)
     const now = new Date();
-    const currentAmpm = now.getHours() < 12 ? '오전' : '오후';
-    let parsedTime = { ampm: currentAmpm, hour: '09', minute: '00' };
+    // 6시 42분에 7시를 말하면 상식적으로 '오늘 오전'이므로 현재 시간 기반으로 초기값 설정
+    let parsedTime = { ampm: now.getHours() < 12 ? '오전' : '오후', hour: '09', minute: '00' };
     let taskName = text;
 
-    // 0. 초기 AM/PM 설정 (현재 시간 기준)
-    setAmpm(currentAmpm);
+    console.log("[VOICE-DEBUG] Input Text:", text);
 
-    // 1. 오전/오후 판별 (텍스트에 포함된 경우 우선 적용)
+    // 1. 오전/오후 판별 (텍스트 우선, 없으면 현재 시간 기준 유지)
     if (text.includes('오후') || text.includes('점심') || text.includes('저녁') || text.includes('밤')) {
       parsedTime.ampm = '오후';
-      setAmpm('오후');
     } else if (text.includes('오전') || text.includes('아침') || text.includes('새벽')) {
       parsedTime.ampm = '오전';
-      setAmpm('오전');
     }
+    setAmpm(parsedTime.ampm);
 
-    // 2. 시간 추출 (숫자 추출)
-    const timeMatch = text.match(/(\d+)시/);
+    // 2. 시간 추출 (숫자 + 한글 숫자 통합 엔진)
+    const timeMatch = text.match(/(\d+)\s*시/);
     if (timeMatch) {
       const h = String(parseInt(timeMatch[1])).padStart(2, '0');
-      parsedTime.hour = h;
-      setHour(h);
+      // 12시가 넘어가면 자동으로 오전/오후 보정 로직 (예: "13시" -> 오후 01시)
+      const hInt = parseInt(h);
+      if (hInt >= 12) {
+        setAmpm('오후');
+        setHour(String(hInt === 12 ? 12 : hInt - 12).padStart(2, '0'));
+      } else {
+        setHour(h);
+      }
     } else {
-      // 한글 숫자 대응 (영/일/이/삼/사/오/육/칠/팔/구/십) - 필요시 확장
       const korNumbers = { '한': '01', '두': '02', '세': '03', '네': '04', '다섯': '05', '여섯': '06', '일곱': '07', '여덟': '08', '아홉': '09', '열': '10', '열한': '11', '열두': '12' };
       for (let [key, val] of Object.entries(korNumbers)) {
-        if (text.includes(`${key} 시`) || text.includes(`${key}시`)) {
-          parsedTime.hour = val;
+        if (text.includes(key + '시') || text.includes(key + ' 시')) {
           setHour(val);
           break;
         }
       }
     }
 
-    // 3. 분 추출 (음성 입력은 1분 단위 정밀도 유지) - 공백 대응 및 정밀도 강화
+    // 3. 분 추출 (1분 단위 정밀 파싱)
     const minuteMatch = text.match(/(\d+)\s*분/);
     if (minuteMatch) {
-      const mRaw = parseInt(minuteMatch[1]);
-      const m = String(mRaw % 60).padStart(2, '0');
-      parsedTime.minute = m;
-      console.log("[VOICE] Parsed Minute:", m);
+      const m = String(parseInt(minuteMatch[1]) % 60).padStart(2, '0');
       setMinute(m);
     } else if (text.includes('반')) {
-      parsedTime.minute = '30';
       setMinute('30');
+    } else if (text.match(/(\d+)\s*시\s*(\d+)/)) { // "7시 3분" 에서 "분"을 생략하고 "7시 3"이라고 할 경우 대응
+      const mMatch = text.match(/(\d+)\s*시\s*(\d+)/);
+      if (mMatch[2]) setMinute(String(parseInt(mMatch[2])).padStart(2, '0'));
     }
 
-    // 4. 모드 판별 (메모/일정/루틴)
-    if (text.includes('메모') || text.includes('노트') || text.includes('기록')) {
+    // 4. 모드 판별 (대표님 지시: 기본=일정, 루틴/메모는 키워드 필수!)
+    if (text.includes('루틴')) {
+      setScheduleMode('routine');
+    } else if (text.includes('메모')) {
       setScheduleMode('memo');
-    } else if (text.includes('일정') || text.includes('스케줄') || text.includes('약속')) {
-      setScheduleMode('schedule');
     } else {
-      setScheduleMode('routine'); // 기본은 루틴
+      setScheduleMode('schedule'); // [남개발 팀장] 음성도 무조건 기본은 일정!
     }
 
     // 5. 업무명 추출 (시간 표현은 제거하되, 모드 키워드는 사용자 의도일 수 있으므로 가급적 보존)
