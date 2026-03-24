@@ -61,7 +61,7 @@ const speakText = (text, voiceName, callback) => {
     return;
   }
   try {
-    // [남개발 부장] 모바일 브라우저 호환성을 위한 초기화 체크
+    // [남개발 팀장] 모바일 브라우저 호환성을 위한 초기화 체크
     if (window.speechSynthesis.paused) {
       window.speechSynthesis.resume();
     }
@@ -71,20 +71,31 @@ const speakText = (text, voiceName, callback) => {
     // 이모지 및 특수문자 제거 로직 간소화 (모바일 성능 고려)
     const utterance = new SpeechSynthesisUtterance(text);
 
-    // [남개발 부장] 선택된 목소리 적용
+    // [남개발 팀장] 최적의 한국어 보이스 선택 로직 (1번/3번 제안 반영)
     const voices = window.speechSynthesis.getVoices();
     if (voiceName) {
       const voice = voices.find(v => v.name === voiceName);
       if (voice) utterance.voice = voice;
     } else {
-      // 한국어 기본 보이스 강제 지정 시도
-      const koVoice = voices.find(v => v.lang.includes('ko'));
-      if (koVoice) utterance.voice = koVoice;
+      // 한국어 보이스 중 선호 목록 (더 밝고 자연스러운 목소리 우선)
+      const preferredVoices = ['Google 한국어', 'Microsoft Heami', 'Microsoft Sun-Hi', 'Apple Yuna', 'Gaeul', 'Jinho'];
+      let selectedVoice = null;
+      
+      for (const p of preferredVoices) {
+        selectedVoice = voices.find(v => (v.name.includes(p)) && v.lang.includes('ko'));
+        if (selectedVoice) break;
+      }
+      
+      if (!selectedVoice) {
+        selectedVoice = voices.find(v => v.lang.includes('ko'));
+      }
+      
+      if (selectedVoice) utterance.voice = selectedVoice;
     }
 
     utterance.lang = 'ko-KR';
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
+    utterance.rate = 1.1;  // [남개발 팀장] 밝고 경쾌한 에너지 (1.1)
+    utterance.pitch = 1.35; // [남개발 팀장] 톤 업 (1.35)
     utterance.volume = 1.0;
 
     if (callback) utterance.onend = callback;
@@ -1827,6 +1838,23 @@ function App() {
                 <>처음이신가요? <span onClick={() => { setIsSignUpMode(true); setLoginError(''); setLoginSuccess(''); }}>회원가입</span></>
               )}
             </div>
+            {!isSignUpMode && (
+              <div className="demo-guide-box" style={{ 
+                marginTop: '20px', 
+                padding: '15px', 
+                background: 'rgba(99, 102, 241, 0.08)', 
+                borderRadius: '12px', 
+                border: '1px border-dashed rgba(99, 102, 241, 0.2)',
+                textAlign: 'center'
+              }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#818cf8', fontWeight: 'bold' }}>🚀 루틴코어 즉시 체험 (권장사례)</p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', fontSize: '0.9rem', color: '#e2e8f0' }}>
+                  <span>ID: <strong style={{color: '#fff'}}>MASTER</strong></span>
+                  <span>PW: <strong style={{color: '#fff'}}>2tobee</strong></span>
+                </div>
+                <p style={{ margin: '8px 0 0 0', fontSize: '0.7rem', color: '#64748b' }}>* 비밀번호 대소문자를 정확히 입력해주세요.</p>
+              </div>
+            )}
           </div>
 
           <div className="landing-features">
