@@ -487,16 +487,19 @@ function App() {
       return;
     }
 
+    // 1. 모드 판별 (대표님 지시: 기본=일정, 키워드 우선 분기)
     const isRoutine = text.includes('루틴');
     const isMemo = text.includes('메모');
+    const isSchedule = text.includes('일정');
 
-    // 우선순위 판별 및 디폴트 설정 (기본=일정)
     if (isRoutine) {
       setScheduleMode('routine');
     } else if (isMemo) {
       setScheduleMode('memo');
+    } else if (isSchedule) {
+      setScheduleMode('schedule');
     } else {
-      setScheduleMode('schedule'); // [남개발 팀장] 일정 단어가 없어도 기본값은 일정!
+      setScheduleMode('schedule'); // [남개발 팀장] 아무것도 없으면 기본은 일정!
     }
 
     setPrevIsSchedule(true); // 기본이 일정이므로 true로 유지
@@ -515,6 +518,20 @@ function App() {
   useEffect(() => {
     const text = editValue.trim();
     if (!text || editingId === null) return;
+
+    // [남개발 팀장] [편집 모드 전용] 모드 판별 (루틴/일정/메모)
+    const isRoutine = text.includes('루틴');
+    const isMemo = text.includes('메모');
+    const isSchedule = text.includes('일정');
+
+    if (isRoutine) {
+      setScheduleMode('routine');
+    } else if (isMemo) {
+      setScheduleMode('memo');
+    } else if (isSchedule) {
+      setScheduleMode('schedule');
+    }
+    // 편집 모드에서는 기존 모드를 존중하되 키워드 발견 시에만 변경하도록 유지
 
     // 1. 오전/오후 감지
     if (text.includes('오후') || text.includes('점심') || text.includes('저녁') || text.includes('밤')) {
@@ -1218,14 +1235,15 @@ function App() {
 
     console.log("[VOICE-DEBUG-V3] Transcript:", text);
 
-    // 1. 모드 판별 및 강제 설정 (대표님 지시: 기본=일정)
-    // 음성 파서 진입 시점에 이미 모드가 결정되도록 최상단 배치
+    // 1. 모드 판별 (대표님 지시: 기본=일정, 키워드 발견 즉시 분기)
     if (text.includes('루틴')) {
       setScheduleMode('routine');
     } else if (text.includes('메모')) {
       setScheduleMode('memo');
+    } else if (text.includes('일정')) {
+      setScheduleMode('schedule');
     } else {
-      setScheduleMode('schedule'); // [남개발 팀장] 묻지도 따지지도 않고 기본은 일정!
+      setScheduleMode('schedule'); // [남개발 팀장] 기본은 일정!
     }
 
     // 2. 오전/오후 판별
