@@ -503,6 +503,14 @@ function App() {
   }, [inputValue]);
 
 
+  const [editingId, setEditingId] = useState(null)
+  const [editValue, setEditValue] = useState('')
+  const [editDays, setEditDays] = useState([])
+  const [editExcludeHolidays, setEditExcludeHolidays] = useState(false)
+  const [editAmpm, setEditAmpm] = useState('오전')
+  const [editHour, setEditHour] = useState('09')
+  const [editMinute, setEditMinute] = useState('00')
+
   // [남개발 팀장] [편집 모드 전용] 실시간 시간 감지 엔진 (7시 13분 등 대응)
   useEffect(() => {
     const text = editValue.trim();
@@ -543,15 +551,6 @@ function App() {
       setEditMinute('30');
     }
   }, [editValue, editingId]);
-
-
-  const [editingId, setEditingId] = useState(null)
-  const [editValue, setEditValue] = useState('')
-  const [editDays, setEditDays] = useState([])
-  const [editExcludeHolidays, setEditExcludeHolidays] = useState(false)
-  const [editAmpm, setEditAmpm] = useState('오전')
-  const [editHour, setEditHour] = useState('09')
-  const [editMinute, setEditMinute] = useState('00')
   const [alertPreference, setAlertPreference] = useState(localStorage.getItem('alertPreference') || 'both')
   const [alarmSound, setAlarmSound] = useState(localStorage.getItem('alarmSound') || 'chime')
 
