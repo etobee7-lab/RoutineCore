@@ -564,7 +564,7 @@ function App() {
 
     // 3. 분 감지 (7시 13분 등 정밀 감지)
     const mMatch = text.match(/(\d+)\s*분/);
-    const mRawMatch = text.match(/시\s*(\d+)/); 
+    const mRawMatch = text.match(/시\s*(\d+)/);
     if (mMatch) {
       setEditMinute(String(parseInt(mMatch[1]) % 60).padStart(2, '0'));
     } else if (mRawMatch) {
@@ -1287,27 +1287,17 @@ function App() {
       setMinute('30');
     }
 
-    // 5. 업무명 추출 (시간 표현은 제거하되, 모드 키워드는 사용자 의도일 수 있으므로 가급적 보존)
-    taskName = text.replace(/오전|오후|아침|점심|저녁|밤|새벽/g, '')
-      .replace(/(\d+시)\s*(\d+분)?\s*에?/g, '')
-      .replace(/한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시/g, '')
-      // .replace(/메모|일정|스케줄|노트|기록|약속/g, '') -> 이 부분을 제거하여 내용을 보존함
-      .replace(/예약|등록|해줘|해|줘/g, '')
-      .trim();
-
-    if (!taskName && text) {
-      // 만약 정규식으로 다 지워져버렸다면 원문이라도 넣어줌
-      taskName = text.trim();
+    // [남개발 팀장] 업무명 정밀 정제 (7시 47분 등 시간 정보 완벽 소거)🛡️
+    let cleanedTitle = text;
+    const timeRegex = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘|해|줘)/g;
+    
+    cleanedTitle = cleanedTitle.replace(timeRegex, '').replace(/\s+/g, ' ').trim();
+    
+    if (!cleanedTitle && text) {
+      cleanedTitle = text.trim();
     }
 
-    // [남개발 부장] '이어서 입력' 기능: 기존 내용이 있으면 뒤에 붙여줌
-    setInputValue(prev => {
-      const current = prev.trim();
-      if (!taskName) return current; // 새로 추가할 내용이 없으면 그대로 유지
-      if (!current) return taskName; // 기존 내용이 없으면 새 내용만
-      if (current.includes(taskName)) return current; // 이미 포함된 내용이면 중복 방지
-      return `${current} ${taskName}`;
-    });
+    setInputValue(cleanedTitle);
   };
 
   const resetForm = (isSubmitted = false) => {
@@ -1336,7 +1326,18 @@ function App() {
   };
 
   const addTodo = async () => {
-    if (!inputValue.trim()) {
+    let finalValue = inputValue.trim();
+    
+    // [남개발 팀장] 최종 저장 시 한 번 더 시간 정보 필터링 (수동 타이핑 대응)
+    const timeKeywords = /(오전|오후|아침|점심|저녁|밤|새벽|(\d+)\s*시|(\d+)\s*분|반)/g;
+    if (timeKeywords.test(finalValue)) {
+      let cleaned = finalValue.replace(timeKeywords, '').replace(/\s+/g, ' ').trim();
+      if (cleaned) {
+        finalValue = cleaned;
+      }
+    }
+
+    if (!finalValue) {
       alert("할 일을 입력해 주세요.");
       return;
     }
