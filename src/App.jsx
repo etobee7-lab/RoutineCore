@@ -503,6 +503,48 @@ function App() {
   }, [inputValue]);
 
 
+  // [남개발 팀장] [편집 모드 전용] 실시간 시간 감지 엔진 (7시 13분 등 대응)
+  useEffect(() => {
+    const text = editValue.trim();
+    if (!text || editingId === null) return;
+
+    // 1. 오전/오후 감지
+    if (text.includes('오후') || text.includes('점심') || text.includes('저녁') || text.includes('밤')) {
+      setEditAmpm('오후');
+    } else if (text.includes('오전') || text.includes('아침') || text.includes('새벽')) {
+      setEditAmpm('오전');
+    }
+
+    // 2. 시간 감지 (7시, 11시 등)
+    const hMatch = text.match(/(\d+)\s*시/);
+    if (hMatch) {
+      const hInt = parseInt(hMatch[1]);
+      const displayH = String(hInt > 12 ? hInt - 12 : hInt).padStart(2, '0');
+      if (hInt >= 12) setEditAmpm('오후');
+      setEditHour(displayH);
+    } else {
+      const korNumbers = { '한': '01', '두': '02', '세': '03', '네': '04', '다섯': '05', '여섯': '06', '일곱': '07', '여덟': '08', '아홉': '09', '열': '10', '열한': '11', '열두': '12' };
+      for (let [key, val] of Object.entries(korNumbers)) {
+        if (text.includes(key + '시') || text.includes(key + ' 시')) {
+          setEditHour(val);
+          break;
+        }
+      }
+    }
+
+    // 3. 분 감지 (7시 13분 등 정밀 감지)
+    const mMatch = text.match(/(\d+)\s*분/);
+    const mRawMatch = text.match(/시\s*(\d+)/); 
+    if (mMatch) {
+      setEditMinute(String(parseInt(mMatch[1]) % 60).padStart(2, '0'));
+    } else if (mRawMatch) {
+      setEditMinute(String(parseInt(mRawMatch[1]) % 60).padStart(2, '0'));
+    } else if (text.includes('반')) {
+      setEditMinute('30');
+    }
+  }, [editValue, editingId]);
+
+
   const [editingId, setEditingId] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [editDays, setEditDays] = useState([])
