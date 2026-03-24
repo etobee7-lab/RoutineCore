@@ -80,16 +80,16 @@ const speakText = (text, voiceName, callback) => {
       // 한국어 보이스 중 선호 목록 (더 밝고 자연스러운 목소리 우선)
       const preferredVoices = ['Google 한국어', 'Microsoft Heami', 'Microsoft Sun-Hi', 'Apple Yuna', 'Gaeul', 'Jinho'];
       let selectedVoice = null;
-      
+
       for (const p of preferredVoices) {
         selectedVoice = voices.find(v => (v.name.includes(p)) && v.lang.includes('ko'));
         if (selectedVoice) break;
       }
-      
+
       if (!selectedVoice) {
         selectedVoice = voices.find(v => v.lang.includes('ko'));
       }
-      
+
       if (selectedVoice) utterance.voice = selectedVoice;
     }
 
@@ -199,7 +199,7 @@ function ScrollPicker({ options, value, onChange, unit }) {
     if (scrollRef.current) {
       const currentScrollTop = scrollRef.current.scrollTop;
       const currentIndex = Math.round(currentScrollTop / itemHeight) % options.length;
-      
+
       const valInt = parseInt(value);
       const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
       let targetIndex = options.indexOf(value);
@@ -472,7 +472,7 @@ function App() {
   const [prevIsSchedule, setPrevIsSchedule] = useState(null) // 이전 입력값의 일정 여부 추적용
   const [allCandidates, setAllCandidates] = useState([]) // 주간 관리자용 전체 후보 리스트
   const [weeklySelectedIds, setWeeklySelectedIds] = useState(new Set()) // 주간 관리자 선택 IDs
-  
+
   // [남개발 부장] 기간 선택 캘린더 엔진용 센서 장착!
   const [showCalendar, setShowCalendar] = useState(false); // 달력 노출 여부
   const [rangeStart, setRangeStart] = useState(null);       // 시작일
@@ -693,7 +693,7 @@ function App() {
     const e = new Date(end);
     const days = new Set();
     const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
-    
+
     let curr = new Date(s);
     while (curr <= e) {
       days.add(DAY_NAMES[curr.getDay()]);
@@ -743,7 +743,7 @@ function App() {
       // 일정과 메모만 후보로 추출
       const candidates = data.filter(t => t.scheduleMode !== 'routine');
       setAllCandidates(candidates);
-      
+
       // 현재 주차에 이미 활성화된 아이템들을 미리 체크
       const activeIds = candidates.filter(c => c.activatedWeek === getWeekStr()).map(c => c.id);
       setWeeklySelectedIds(new Set(activeIds));
@@ -1149,7 +1149,7 @@ function App() {
     if (window.Notification && window.Notification.permission !== "granted" && window.Notification.permission !== "denied") {
       subscribeUserToPush(currentUser);
     }
-    
+
     recognition.onresult = (event) => {
       let interimTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -1174,7 +1174,7 @@ function App() {
     const now = new Date();
     // 상식적인 시간 체계로 초기화
     let parsedTime = { ampm: now.getHours() < 12 ? '오전' : '오후', hour: '07', minute: '00' };
-    
+
     console.log("[VOICE-DEBUG-V3] Transcript:", text);
 
     // 1. 모드 판별 및 강제 설정 (대표님 지시: 기본=일정)
@@ -1252,7 +1252,7 @@ function App() {
     const nextT = getDefaultTime();
     const DAYS_KOR = ['일', '월', '화', '수', '목', '금', '토'];
     const todayKor = DAYS_KOR[new Date().getDay()];
-    
+
     if (isActuallySubmitted) {
       setInputValue(''); // 예약 후에는 입력창 초기화
       setExcludeHolidays(true); // 주말 제외 체크
@@ -1260,7 +1260,7 @@ function App() {
     } else {
       // [남개발 부장] 초기화 버튼 클릭 시 "오늘 요일"만 활성화!
       setExcludeHolidays(false);
-      setSelectedDays([todayKor]); 
+      setSelectedDays([todayKor]);
     }
     setAmpm(nextT.ampm);
     setHour(nextT.hour);
@@ -1309,8 +1309,8 @@ function App() {
       if (!res.ok) throw new Error("서버 저장 실패");
 
       alert(`[${formatTime(time)}] ${inputValue}\n예약이 완료되었습니다! ✅`);
-      resetForm(true); 
-      setListFilter(scheduleMode); 
+      resetForm(true);
+      setListFilter(scheduleMode);
       setLastAddedId(timestamp);
     } catch (e) {
       console.error("Add failed", e);
@@ -1326,7 +1326,7 @@ function App() {
     const days = todo.days ? todo.days.split(',') : [];
     setEditDays(days);
     setEditExcludeHolidays(!!todo.excludeHolidays);
-    
+
     const [h, m] = (todo.time || '09:00').split(':');
     let hourNum = parseInt(h);
     const p = hourNum >= 12 ? '오후' : '오전';
@@ -1335,7 +1335,7 @@ function App() {
     if (hourNum === 0) hourNum = 12;
     setEditHour(String(hourNum).padStart(2, '0'));
     setEditMinute(m);
-    
+
     // [남개발 부장] 수정 시 기존 기간 정보를 캘린더 센서에 미리 동기화!
     setRangeStart(todo.startDate || null);
     setRangeEnd(todo.endDate || null);
@@ -1832,18 +1832,18 @@ function App() {
               )}
             </div>
             {!isSignUpMode && (
-              <div className="demo-guide-box" style={{ 
-                marginTop: '20px', 
-                padding: '15px', 
-                background: 'rgba(99, 102, 241, 0.08)', 
-                borderRadius: '12px', 
+              <div className="demo-guide-box" style={{
+                marginTop: '20px',
+                padding: '15px',
+                background: 'rgba(99, 102, 241, 0.08)',
+                borderRadius: '12px',
                 border: '1px border-dashed rgba(99, 102, 241, 0.2)',
                 textAlign: 'center'
               }}>
                 <p style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#818cf8', fontWeight: 'bold' }}>🚀 루틴코어 즉시 체험 (권장사례)</p>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', fontSize: '0.9rem', color: '#e2e8f0' }}>
-                  <span>ID: <strong style={{color: '#fff'}}>MASTER</strong></span>
-                  <span>PW: <strong style={{color: '#fff'}}>2tobee</strong></span>
+                  <span>ID: <strong style={{ color: '#fff' }}>MASTER</strong></span>
+                  <span>PW: <strong style={{ color: '#fff' }}>2tobee</strong></span>
                 </div>
                 <p style={{ margin: '8px 0 0 0', fontSize: '0.7rem', color: '#64748b' }}>* 비밀번호 대소문자를 정확히 입력해주세요.</p>
               </div>
@@ -2030,10 +2030,10 @@ function App() {
                 <div className="mypage-user-meta">
                   <p className="mypage-username">{currentUser} 님</p>
                   <div className="mypage-user-badges" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <div className="mypage-level-badge" style={{ 
-                      fontSize: '0.7rem', 
-                      padding: '2px 8px', 
-                      borderRadius: '8px', 
+                    <div className="mypage-level-badge" style={{
+                      fontSize: '0.7rem',
+                      padding: '2px 8px',
+                      borderRadius: '8px',
                       background: getLevelInfo(userPoints).color,
                       color: '#fff',
                       fontWeight: '900'
@@ -2052,7 +2052,7 @@ function App() {
                   <span style={{ fontSize: '0.9rem', color: '#6366f1', fontWeight: '900' }}>
                     {(() => {
                       const currentWeek = getWeekStr();
-                      const weekItems = todos.filter(t => 
+                      const weekItems = todos.filter(t =>
                         t.scheduleMode === 'routine' || t.activatedWeek === currentWeek
                       );
                       const completed = weekItems.filter(t => t.completed).length;
@@ -2062,9 +2062,9 @@ function App() {
                   </span>
                 </div>
                 <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ 
-                    height: '100%', 
-                    background: 'linear-gradient(90deg, #6366f1, #a855f7)', 
+                  <div style={{
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #6366f1, #a855f7)',
                     width: (() => {
                       const currentWeek = getWeekStr();
                       const weekItems = todos.filter(t => t.scheduleMode === 'routine' || t.activatedWeek === currentWeek);
@@ -2105,10 +2105,10 @@ function App() {
                 <div className="mypage-section weekly-section">
                   <p className="mypage-label">📅 이번 주 정예 일정/메모 선발</p>
                   <p className="mypage-subtitle" style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '-10px 20px 20px 20px' }}>
-                    매주 월요일, 이번 주에 집중할 항목들을 선택해 활성화하세요.<br/>
+                    매주 월요일, 이번 주에 집중할 항목들을 선택해 활성화하세요.<br />
                     루틴은 고정이며, 일정과 메모만 여기서 관리합니다.
                   </p>
-                  
+
                   <div className="weekly-manage-controls" style={{ padding: '0 20px 15px 20px', display: 'flex', gap: '10px' }}>
                     <button className="activate-all-btn" onClick={handleActivateWeekly} style={{ flex: 1, padding: '12px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold' }}>
                       이번 주 전술 배치 (선택 완료) 🚀
@@ -2119,37 +2119,37 @@ function App() {
                     {allCandidates.length === 0 ? (
                       <div className="empty-state" style={{ padding: '40px 0' }}>
                         <span className="empty-icon" style={{ fontSize: '3rem', opacity: 0.3 }}>🏛️</span>
-                        <p style={{ marginTop: '10px' }}>아직 선발할 후보가 없습니다.<br/>할 일을 먼저 등록해 보세요!</p>
+                        <p style={{ marginTop: '10px' }}>아직 선발할 후보가 없습니다.<br />할 일을 먼저 등록해 보세요!</p>
                       </div>
                     ) : (
                       allCandidates.map(todo => (
-                        <div key={todo.id} className={`mypage-routine-item card-style ${weeklySelectedIds.has(todo.id) ? 'active-weekly' : ''}`} 
-                             onClick={() => {
-                               setWeeklySelectedIds(prev => {
-                                 const next = new Set(prev);
-                                 if (next.has(todo.id)) next.delete(todo.id);
-                                 else next.add(todo.id);
-                                 return next;
-                               });
-                             }}
-                             style={{ 
-                               cursor: 'pointer', 
-                               background: 'rgba(255,255,255,0.03)',
-                               borderRadius: '16px',
-                               padding: '18px',
-                               marginBottom: '12px',
-                               border: weeklySelectedIds.has(todo.id) ? '2px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
-                               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                               transform: weeklySelectedIds.has(todo.id) ? 'scale(1.02)' : 'scale(1)'
-                             }}
+                        <div key={todo.id} className={`mypage-routine-item card-style ${weeklySelectedIds.has(todo.id) ? 'active-weekly' : ''}`}
+                          onClick={() => {
+                            setWeeklySelectedIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(todo.id)) next.delete(todo.id);
+                              else next.add(todo.id);
+                              return next;
+                            });
+                          }}
+                          style={{
+                            cursor: 'pointer',
+                            background: 'rgba(255,255,255,0.03)',
+                            borderRadius: '16px',
+                            padding: '18px',
+                            marginBottom: '12px',
+                            border: weeklySelectedIds.has(todo.id) ? '2px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            transform: weeklySelectedIds.has(todo.id) ? 'scale(1.02)' : 'scale(1)'
+                          }}
                         >
                           <div className="todo-content-row">
                             <div className="todo-info" style={{ opacity: weeklySelectedIds.has(todo.id) ? 1 : 0.6 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                <span style={{ 
-                                  fontSize: '0.65rem', 
-                                  padding: '2px 8px', 
-                                  borderRadius: '6px', 
+                                <span style={{
+                                  fontSize: '0.65rem',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
                                   background: todo.scheduleMode === 'schedule' ? '#3b82f6' : '#10b981',
                                   color: '#fff',
                                   fontWeight: 'bold'
@@ -2164,8 +2164,8 @@ function App() {
                               </div>
                             </div>
                             <div className="selection-indicator">
-                              <div className={`custom-checkbox ${weeklySelectedIds.has(todo.id) ? 'checked' : ''}`} 
-                                   style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid #6366f1', background: weeklySelectedIds.has(todo.id) ? '#6366f1' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: weeklySelectedIds.has(todo.id) ? '0 0 10px rgba(99, 102, 241, 0.4)' : 'none' }}>
+                              <div className={`custom-checkbox ${weeklySelectedIds.has(todo.id) ? 'checked' : ''}`}
+                                style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid #6366f1', background: weeklySelectedIds.has(todo.id) ? '#6366f1' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: weeklySelectedIds.has(todo.id) ? '0 0 10px rgba(99, 102, 241, 0.4)' : 'none' }}>
                                 {weeklySelectedIds.has(todo.id) && <span style={{ color: '#fff', fontSize: '16px' }}>✓</span>}
                               </div>
                             </div>
@@ -2213,36 +2213,36 @@ function App() {
                       return filteredHistory
                         .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))
                         .map(todo => (
-                          <div key={todo.id} className={`mypage-routine-item card-style history-item ${editingId === todo.id ? 'editing' : ''}`} 
-                             style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '16px', padding: '15px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div key={todo.id} className={`mypage-routine-item card-style history-item ${editingId === todo.id ? 'editing' : ''}`}
+                            style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '16px', padding: '15px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
                             {editingId === todo.id ? (
-                                <div className="edit-container" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
-                                 <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
-                                 <div className="edit-days-row">
-                                   {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-                                     <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => setEditDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}>{d}</button>
-                                   ))}
-                                 </div>
-                                 <div className="input-helper-row edit-mode">
-                                   <label className="holiday-toggle">
-                                     <input type="checkbox" checked={editExcludeHolidays} onChange={e => setEditExcludeHolidays(e.target.checked)} />
-                                     <span>공휴일/주말 제외</span>
-                                   </label>
-                                   <button type="button" className="clear-form-btn" onClick={() => resetEditForm()}>초기화</button>
-                                 </div>
-                                 <div className="edit-actions">
-                                   <button className="save-btn" onClick={() => saveEdit(todo.id)}>저장</button>
-                                   <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
-                                 </div>
-                               </div>
+                              <div className="edit-container" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
+                                <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
+                                <div className="edit-days-row">
+                                  {['월', '화', '수', '목', '금', '토', '일'].map(d => (
+                                    <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => setEditDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}>{d}</button>
+                                  ))}
+                                </div>
+                                <div className="input-helper-row edit-mode">
+                                  <label className="holiday-toggle">
+                                    <input type="checkbox" checked={editExcludeHolidays} onChange={e => setEditExcludeHolidays(e.target.checked)} />
+                                    <span>공휴일/주말 제외</span>
+                                  </label>
+                                  <button type="button" className="clear-form-btn" onClick={() => resetEditForm()}>초기화</button>
+                                </div>
+                                <div className="edit-actions">
+                                  <button className="save-btn" onClick={() => saveEdit(todo.id)}>저장</button>
+                                  <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
+                                </div>
+                              </div>
                             ) : (
                               <div className="todo-content-row">
                                 <div className="todo-info">
                                   <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                                    <span style={{ 
-                                      fontSize: '0.62rem', 
-                                      padding: '2px 6px', 
-                                      borderRadius: '4px', 
+                                    <span style={{
+                                      fontSize: '0.62rem',
+                                      padding: '2px 6px',
+                                      borderRadius: '4px',
                                       background: todo.scheduleMode === 'routine' ? '#818cf8' : (todo.scheduleMode === 'schedule' ? '#3b82f6' : '#10b981'),
                                       color: '#fff',
                                       fontWeight: 'bold'
@@ -2344,14 +2344,14 @@ function App() {
                         return (
                           <div className="empty-state" style={{ padding: '60px 0' }}>
                             <span className="empty-icon" style={{ fontSize: '4rem', opacity: 0.2 }}>🔄</span>
-                            <p style={{ marginTop: '15px' }}>등록된 루틴이 없습니다.<br/>성공의 기둥을 세워보세요!</p>
+                            <p style={{ marginTop: '15px' }}>등록된 루틴이 없습니다.<br />성공의 기둥을 세워보세요!</p>
                           </div>
                         );
                       }
 
                       return routinesOnly.map(todo => (
                         <div key={todo.id} className={`mypage-routine-item card-style ${editingId === todo.id ? 'editing' : ''}`}
-                             style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '16px', padding: '15px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '16px', padding: '15px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
                           {editingId === todo.id ? (
                             <div className="edit-container" style={{ margin: 0, padding: 0, border: 'none', background: 'transparent' }}>
                               <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
@@ -2376,10 +2376,10 @@ function App() {
                             <div className="todo-content-row">
                               <div className="todo-info">
                                 <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                                  <span style={{ 
-                                    fontSize: '0.62rem', 
-                                    padding: '2px 6px', 
-                                    borderRadius: '4px', 
+                                  <span style={{
+                                    fontSize: '0.62rem',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
                                     background: '#818cf8',
                                     color: '#fff',
                                     fontWeight: 'bold'
@@ -2943,7 +2943,7 @@ function App() {
                 const firstDay = new Date(year, month, 1).getDay();
                 const lastDate = new Date(year, month + 1, 0).getDate();
                 const days = [];
-                
+
                 // 빈 칸
                 for (let i = 0; i < firstDay; i++) days.push(null);
                 // 날짜
@@ -2970,7 +2970,7 @@ function App() {
                             // [남개발 부장] 시작일이 고정되어 있으므로 클릭하는 즉시 종료일로 간주!
                             const currentD = new Date(d);
                             const startD = new Date(rangeStart);
-                            
+
                             if (currentD < startD) {
                               // 만약 시작일보다 앞쪽을 누르면 시작일을 그날로 옮김 (유연성 확보)
                               setRangeStart(dateStr);
@@ -3015,7 +3015,7 @@ function App() {
                       setSelectedDays(autoDays);
                       setExcludeHolidays(false);
                     }
-                    
+
                     alert(`[설정완료] "${editingId ? editValue : inputValue}" 일정을\n${rangeStart} ~ ${rangeEnd} 기간으로 확정하며\n요일은 [${autoDays.join(', ')}]으로 자동 설정되었습니다.`);
                     setShowCalendar(false);
                   }}>이 기간으로 확정</button>
