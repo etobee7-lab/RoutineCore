@@ -12,11 +12,15 @@
   <title>RoutineCore</title>
   <script>
     window.onerror = function(msg, url, line, col, error) {
-      console.error("Global Error: " + msg + " at " + line + ":" + col);
+      const err = "Global Error: " + msg + " at " + line + ":" + col;
+      console.error(err);
+      if (window.location.search.includes('debug=true')) alert(err);
       return false;
     };
     window.onunhandledrejection = function(event) {
-      console.error("Unhandled Rejection: " + event.reason);
+      const err = "Unhandled Rejection: " + event.reason;
+      console.error(err);
+      if (window.location.search.includes('debug=true')) alert(err);
     };
   </script>
   <style>

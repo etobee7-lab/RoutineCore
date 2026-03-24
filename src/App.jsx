@@ -454,8 +454,8 @@ function App() {
   const [minute, setMinute] = useState(defaultT.minute)
   const [selectedDays, setSelectedDays] = useState(['월', '화', '수', '목', '금']) // 기본 평일 선택
   const [excludeHolidays, setExcludeHolidays] = useState(true) // 기본 체크됨
-  const [scheduleMode, setScheduleMode] = useState('routine') // 'routine' | 'schedule'
-  const [listFilter, setListFilter] = useState('all') // 'all' | 'routine' | 'schedule'
+  const [scheduleMode, setScheduleMode] = useState('schedule') // 'routine' | 'schedule'
+  const [listFilter, setListFilter] = useState('schedule') // 'all' | 'routine' | 'schedule'
   const [isWeeklyView, setIsWeeklyView] = useState(false) // [NAM] Weekly Board Mode
   const [listSort, setListSort] = useState('asc') // 'asc' | 'desc'
   const [prevIsSchedule, setPrevIsSchedule] = useState(null) // 이전 입력값의 일정 여부 추적용
@@ -1713,6 +1713,8 @@ function App() {
         setAmpm('오전');
         setHour('09');
         setMinute('00');
+        setListFilter('schedule');
+        setScheduleMode('schedule');
         subscribeUserToPush(data.username);
       } else {
         setLoginError(data.error || '로그인에 실패했습니다.');

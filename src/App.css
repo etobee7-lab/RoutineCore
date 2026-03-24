@@ -30,6 +30,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  min-height: 100vh;
   min-height: 100dvh;
   background: radial-gradient(circle at top left, #334155 0%, #0f172a 60%, #000000 100%);
   padding: 0;
@@ -50,6 +51,7 @@ body {
   max-width: 650px;
   margin: 0 auto;
   position: relative;
+  min-height: 100vh;
   min-height: 100dvh;
 }
 
@@ -62,6 +64,7 @@ body {
   padding: 0.6rem 1.2rem 1.2rem 1.2rem; /* 위쪽 패딩 축소 */
   box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   position: relative;
+  min-height: 100vh;
   min-height: 100dvh; /* 모바일에서 꽉 차게 */
   display: flex;
   flex-direction: column;
@@ -220,7 +223,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  /* ?袁⑥삋?癒?퐣 ?袁⑥쨮 筌△뫁?ㅷ몴?우쓺 */
+  /* 수직 프로그레스 바 하단 정렬 */
 }
 
 .progress-mini-bar-fill {
@@ -420,7 +423,7 @@ body {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
-/* ???쉐 ??낆젾 甕곌쑵????釉?*/
+/* 음성 입력 영역 */
 .input-with-voice {
   display: flex;
   gap: 0.5rem;
@@ -472,7 +475,7 @@ body {
   font-size: 1.2rem;
 }
 
-/* ?遺우뵬 ?醫뤾문疫?*/
+/* 요일 선택기 */
 .day-selector-wrap {
   display: flex;
   flex-direction: column;
@@ -508,7 +511,7 @@ body {
   border-color: #3b82f6;
 }
 
-/* ?????獄?퍔? */
+/* 포인트 인디케이터 */
 .points-indicator {
   display: flex;
   align-items: center;
@@ -646,7 +649,7 @@ body {
   padding-left: 0.2rem;
 }
 
-/* ??볦퍢 ????깅묽 */
+/* 시간 선택 스크롤 */
 .time-selector-group.scroll-style {
   display: flex;
   gap: 0.4rem;
@@ -763,7 +766,7 @@ body {
   filter: brightness(1.1);
 }
 
-/* 筌뤴뫖以??????*/
+/* 할 일 리스트 */
 .todo-list {
   list-style: none;
   padding: 0;
