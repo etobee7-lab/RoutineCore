@@ -1324,7 +1324,7 @@ function App() {
     setAmpm(nextT.ampm);
     setHour(nextT.hour);
     setMinute(nextT.minute);
-    setScheduleMode('routine');
+    setScheduleMode('schedule'); // [남개발 팀장] 전사적 기본값(일정)과 동기화🛡️
     setPrevIsSchedule(null);
     setRangeStart(null); // 기간 초기화
     setRangeEnd(null);
@@ -1777,7 +1777,7 @@ function App() {
         setHour('09');
         setMinute('00');
         setListFilter('schedule');
-        setScheduleMode('schedule');
+        setScheduleMode('schedule'); // [남개발 팀장] 로그인 시에도 기본은 일정🛡️
         subscribeUserToPush(data.username);
       } else {
         setLoginError(data.error || '로그인에 실패했습니다.');
