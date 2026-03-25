@@ -1195,10 +1195,10 @@ function App() {
     }
 
     const recognition = new SpeechRecognition();
-    const initialInput = inputValue.trim(); // [남개발 부장] 시작 시점의 입력값을 캡처!
+    const initialInput = inputValue.trim();
 
     recognition.lang = 'ko-KR';
-    recognition.interimResults = true; // 실시간 결과 노출 활성화
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => setIsListening(true);
@@ -1208,142 +1208,86 @@ function App() {
       setIsListening(false);
     };
 
-    // 알림 권한 체크 (푸시 알림 고도화 연동)
-    if (window.Notification && window.Notification.permission !== "granted" && window.Notification.permission !== "denied") {
-      subscribeUserToPush(currentUser);
-    }
-
     recognition.onresult = (event) => {
       let interimTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          console.log("[VOICE] Final Text:", transcript);
           parseAndSetTodo(transcript);
         } else {
           interimTranscript += transcript;
-          // [남개발 부장] 기존 내용 + 실시간 인식 내용을 합쳐서 보여드림
           const combined = initialInput ? `${initialInput} ${interimTranscript}` : interimTranscript;
           setInputValue(combined);
         }
       }
     };
-
     recognition.start();
   };
 
   const parseAndSetTodo = (text) => {
-    // [남개발 팀장] 지능형 음성 파서 V3 (6시 59분 긴급 패치 및 모드 고정)
     const now = new Date();
-    // 상식적인 시간 체계로 초기화
     let parsedTime = { ampm: now.getHours() < 12 ? '오전' : '오후', hour: '07', minute: '00' };
 
-    console.log("[VOICE-DEBUG-V3] Transcript:", text);
+    // 1. 모드 판별
+    if (text.includes('루틴')) setScheduleMode('routine');
+    else if (text.includes('메모')) setScheduleMode('memo');
+    else setScheduleMode('schedule');
 
-    // 1. 모드 판별 (대표님 지시: 기본=일정, 키워드 발견 즉시 분기)
-    if (text.includes('루틴')) {
-      setScheduleMode('routine');
-    } else if (text.includes('메모')) {
-      setScheduleMode('memo');
-    } else if (text.includes('일정')) {
-      setScheduleMode('schedule');
-    } else {
-      setScheduleMode('schedule'); // [남개발 팀장] 기본은 일정!
-    }
-
-    // 2. 오전/오후 판별
-    if (text.includes('오후') || text.includes('점심') || text.includes('저녁') || text.includes('밤')) {
-      parsedTime.ampm = '오후';
-    } else if (text.includes('오전') || text.includes('아침') || text.includes('새벽')) {
-      parsedTime.ampm = '오전';
-    }
-    setAmpm(parsedTime.ampm);
-
-    // 3. 시간 추출 (숫자 6시 59분 및 기타 변종 정밀 타격)
+    // 2. 시간 추출
+    if (text.includes('오후') || text.includes('점심') || text.includes('저녁') || text.includes('밤')) parsedTime.ampm = '오후';
+    else if (text.includes('오전') || text.includes('아침') || text.includes('새벽')) parsedTime.ampm = '오전';
+    
     const hMatch = text.match(/(\d+)\s*시/);
     if (hMatch) {
       const hInt = parseInt(hMatch[1]);
       const displayH = String(hInt > 12 ? hInt - 12 : hInt).padStart(2, '0');
       if (hInt >= 12) setAmpm('오후');
       setHour(displayH);
-    } else {
-      const korNumbers = { '한': '01', '두': '02', '세': '03', '네': '04', '다섯': '05', '여섯': '06', '일곱': '07', '여덟': '08', '아홉': '09', '열': '10', '열한': '11', '열두': '12' };
-      for (let [key, val] of Object.entries(korNumbers)) {
-        if (text.includes(key + '시') || text.includes(key + ' 시')) {
-          setHour(val);
-          break;
-        }
-      }
     }
-
-    // 4. 분 추출 (6시 59분 에서 59를 완벽하게 포착)
     const mMatch = text.match(/(\d+)\s*분/);
-    const mRawMatch = text.match(/시\s*(\d+)/); // "6시 59" 처럼 분을 빼먹은 경우 대비
-    if (mMatch) {
-      setMinute(String(parseInt(mMatch[1]) % 60).padStart(2, '0'));
-    } else if (mRawMatch) {
-      setMinute(String(parseInt(mRawMatch[1]) % 60).padStart(2, '0'));
-    } else if (text.includes('반')) {
-      setMinute('30');
-    }
+    const mRawMatch = text.match(/시\s*(\d+)/);
+    if (mMatch) setMinute(String(parseInt(mMatch[1]) % 60).padStart(2, '0'));
+    else if (mRawMatch) setMinute(String(parseInt(mRawMatch[1]) % 60).padStart(2, '0'));
+    else if (text.includes('반')) setMinute('30');
+    setAmpm(parsedTime.ampm);
 
-    // [남개발 팀장] 업무명 정밀 정제 (7시 47분 등 시간 정보 완벽 소거)🛡️
-    let cleanedTitle = text;
-    const timeRegex = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘|해|줘)/g;
-    
-    cleanedTitle = cleanedTitle.replace(timeRegex, '').replace(/\s+/g, ' ').trim();
-    
-    if (!cleanedTitle && text) {
-      cleanedTitle = text.trim();
-    }
-
-    setInputValue(cleanedTitle);
+    // 3. 업무명 정제 (7시 47분 보호막 소거) 🛡️
+    const filter = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘|해|줘)/g;
+    let cleaned = text.replace(filter, '').replace(/\s+/g, ' ').trim();
+    if (!cleaned) cleaned = text.trim();
+    setInputValue(cleaned);
   };
 
   const resetForm = (isSubmitted = false) => {
-    // React 이벤트 객체가 인자로 전달될 경우를 대비해 boolean 체크
     const isActuallySubmitted = isSubmitted === true;
     const nextT = getDefaultTime();
     const DAYS_KOR = ['일', '월', '화', '수', '목', '금', '토'];
     const todayKor = DAYS_KOR[new Date().getDay()];
 
     if (isActuallySubmitted) {
-      setInputValue(''); // 예약 후에는 입력창 초기화
-      setExcludeHolidays(true); // 주말 제외 체크
-      setSelectedDays(['월', '화', '수', '목', '금']); // 월~금 선택
+      setInputValue('');
+      setExcludeHolidays(true);
+      setSelectedDays(['월', '화', '수', '목', '금']);
     } else {
-      // [남개발 부장] 초기화 버튼 클릭 시 "오늘 요일"만 활성화!
       setExcludeHolidays(false);
       setSelectedDays([todayKor]);
     }
     setAmpm(nextT.ampm);
     setHour(nextT.hour);
     setMinute(nextT.minute);
-    setScheduleMode('schedule'); // [남개발 팀장] 전사적 기본값(일정)과 동기화🛡️
+    setScheduleMode('schedule');
     setPrevIsSchedule(null);
-    setRangeStart(null); // 기간 초기화
+    setRangeStart(null);
     setRangeEnd(null);
   };
 
   const addTodo = async () => {
-    let finalValue = inputValue.trim();
+    const filter = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘|해|줘)/g;
+    let rawVal = inputValue.trim();
+    let cleaned = rawVal.replace(filter, '').replace(/\s+/g, ' ').trim();
+    if (!cleaned) cleaned = rawVal;
 
-    // [남개발 팀장] 강력한 시간 정보 제거 필터 (7시 54분 등 파편 완벽 소거)🛡️
-    const powerfulFilter = /(오전|오후|아침|점심|저녁|밤|새벽|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|반|예약|등록|해줘|해|줘)/g;
-    
-    // 반복적으로 모든 매칭 지우기
-    let cleaned = finalValue;
-    while(powerfulFilter.test(cleaned)) {
-       cleaned = cleaned.replace(powerfulFilter, '');
-    }
-    cleaned = cleaned.replace(/\s+/g, ' ').trim();
-
-    // 다 지웠더니 아무것도 안 남으면(예: "7시 3분") 원문을 그대로 쓰는 보험 정책
-    if (cleaned) {
-      finalValue = cleaned;
-    }
-
-    if (!finalValue) {
+    if (!cleaned) {
       alert("할 일을 입력해 주세요.");
       return;
     }
@@ -1356,7 +1300,7 @@ function App() {
       if (ampm === '오후' && h !== 12) h += 12;
       if (ampm === '오전' && h === 12) h = 0;
       const time = `${String(h).padStart(2, '0')}:${minute}`;
-
+      
       const duplicate = todos.find(t => t.time === time);
       if (duplicate) {
         if (!window.confirm(`중복된 시간(${formatTime(time)})에 '${duplicate.text}' 일정이 이미 있습니다. 추가하시겠습니까?`)) return;
@@ -1365,7 +1309,7 @@ function App() {
       const timestamp = Date.now();
       const newTodo = {
         id: timestamp,
-        text: inputValue,
+        text: cleaned,
         time,
         days: selectedDays.join(','),
         excludeHolidays: !!excludeHolidays,
@@ -1376,18 +1320,19 @@ function App() {
         startDate: rangeStart,
         endDate: rangeEnd
       };
+      
       const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTodo) });
       if (!res.ok) throw new Error("서버 저장 실패");
 
-      alert(`[${formatTime(time)}] ${inputValue}\n예약이 완료되었습니다! ✅`);
+      alert(`[${formatTime(time)}] ${cleaned}\n예약이 완료되었습니다! ✅`);
       resetForm(true);
       setListFilter(scheduleMode);
       setLastAddedId(timestamp);
+      fetchTodos();
     } catch (e) {
       console.error("Add failed", e);
       alert("등록 중 오류가 발생했습니다.");
     }
-    fetchTodos();
   };
 
 
