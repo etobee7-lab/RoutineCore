@@ -1251,8 +1251,8 @@ function App() {
     else if (text.includes('반')) setMinute('30');
     setAmpm(parsedTime.ampm);
 
-    // 3. 업무명 정제 (7시 47분 보호막 소거) 🛡️
-    const filter = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘|해|줘)/g;
+    // 3. 업무명 정제 (7시 47분 보호막 소거, '해/줘' 단독 글자 필터 제외) 🛡️
+    const filter = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
     let cleaned = text.replace(filter, '').replace(/\s+/g, ' ').trim();
     if (!cleaned) cleaned = text.trim();
     setInputValue(cleaned);
@@ -1282,7 +1282,7 @@ function App() {
   };
 
   const addTodo = async () => {
-    const filter = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘|해|줘)/g;
+    const filter = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
     let rawVal = inputValue.trim();
     let cleaned = rawVal.replace(filter, '').replace(/\s+/g, ' ').trim();
     if (!cleaned) cleaned = rawVal;
