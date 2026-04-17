@@ -1008,6 +1008,10 @@ function App() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    
+    // [남개발 부장] 로그인 즉시 입력기 시간을 현재 시각으로 동기화
+    resetForm();
+    
     fetchTodos();
     fetchAffirmations();
     fetchProfile();
@@ -1031,6 +1035,42 @@ function App() {
       navigator.serviceWorker.removeEventListener('message', handleMessage);
     };
   }, [isAuthenticated, currentUser]);
+
+  // [남개발 부장] 로그인/새로고침 시 현재 시각에 가장 가까운 할 일로 지능적 자동 스크롤
+  useEffect(() => {
+    if (!isAuthenticated || todos.length === 0) return;
+
+    // 이미 자동 스크롤을 수행했는지 확인 (세션당 1회 또는 특정 조건)
+    // 여기서는 todos가 처음 로딩되었을 때 1회 수행하도록 함
+    const hasScrolled = sessionStorage.getItem('initial_scroll_done');
+    if (hasScrolled === 'true') return;
+
+    const now = new Date();
+    const currentH24 = now.getHours();
+    const currentM24 = now.getMinutes();
+    const currentTimeStr = `${String(currentH24).padStart(2, '0')}:${String(currentM24).padStart(2, '0')}`;
+
+    // 시간 순으로 정렬된 리스트에서 현재 시각 이후의 첫 번째 항목 찾기
+    const sorted = [...todos].sort((a, b) => a.time.localeCompare(b.time));
+    const nextTask = sorted.find(t => t.time >= currentTimeStr) || sorted[0];
+
+    if (nextTask) {
+      setTimeout(() => {
+        const el = document.getElementById(`todo-${nextTask.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          sessionStorage.setItem('initial_scroll_done', 'true');
+        }
+      }, 500); // UI 렌더링 대기
+    }
+  }, [isAuthenticated, todos.length]);
+
+  // 로그아웃 시 스크롤 상태 초기화
+  useEffect(() => {
+    if (!isAuthenticated) {
+      sessionStorage.removeItem('initial_scroll_done');
+    }
+  }, [isAuthenticated]);
 
   // 기기 간 알람 동기화: 서버 데이터를 기반으로 다른 기기에서 확인된 알람 제거
   useEffect(() => {
@@ -1727,12 +1767,7 @@ function App() {
         localStorage.setItem('routine_auth', 'true');
         localStorage.setItem('routine_user', data.username);
         // 로그인 시 디폴트: 평일 선택 + 공휴일/주말 제외 체크
-        setInputValue('');
-        setExcludeHolidays(true);
-        setSelectedDays(['월', '화', '수', '목', '금']);
-        setAmpm('오전');
-        setHour('09');
-        setMinute('00');
+        resetForm(); // [남개발 부장] 로그인 시 현재 시각 기준으로 입력 폼 전체 동기화
         setListFilter('schedule');
         setScheduleMode('schedule'); // [남개발 팀장] 로그인 시에도 기본은 일정🛡️
         subscribeUserToPush(data.username);
