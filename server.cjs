@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const mysql = require('mysql2/promise');
 const path = require('path');
 const cron = require('node-cron');
@@ -13,6 +14,11 @@ const notificationService = require('./services/notificationService.cjs');
 const app = express();
 const PORT = 3000;
 
+// 보안 헤더 추가
+app.use(helmet({
+  contentSecurityPolicy: false, // 개발 중에는 CSP 비활성화
+  crossOriginEmbedderPolicy: false
+}));
 app.use(cors());
 app.use(express.json());
 

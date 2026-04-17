@@ -1331,42 +1331,61 @@ function App() {
       alert("할 일을 입력해 주세요.");
       return;
     }
-    if (selectedDays.length === 0) {
+
+    // [메모 전용 처리] 메모 모드일 때는 시간/요일 없이 저장
+    const isMemoMode = scheduleMode === 'memo' || cleaned.includes('메모');
+    
+    if (!isMemoMode && selectedDays.length === 0) {
       alert("최소 한 개의 요일을 선택해 주세요.");
       return;
     }
+
     try {
-      let h = parseInt(hour);
-      if (ampm === '오후' && h !== 12) h += 12;
-      if (ampm === '오전' && h === 12) h = 0;
-      const time = `${String(h).padStart(2, '0')}:${minute}`;
+      let time = null;
+      let days = '';
       
-      const duplicate = todos.find(t => t.time === time);
-      if (duplicate) {
-        if (!window.confirm(`중복된 시간(${formatTime(time)})에 '${duplicate.text}' 일정이 이미 있습니다. 추가하시겠습니까?`)) return;
+      if (!isMemoMode) {
+        // 일정/루틴 모드: 시간과 요일 설정
+        let h = parseInt(hour);
+        if (ampm === '오후' && h !== 12) h += 12;
+        if (ampm === '오전' && h === 12) h = 0;
+        time = `${String(h).padStart(2, '0')}:${minute}`;
+        days = selectedDays.join(',');
+        
+        const duplicate = todos.find(t => t.time === time);
+        if (duplicate) {
+          if (!window.confirm(`중복된 시간(${formatTime(time)})에 '${duplicate.text}' 일정이 이미 있습니다. 추가하시겠습니까?`)) return;
+        }
       }
 
       const timestamp = Date.now();
+      const finalMode = isMemoMode ? 'memo' : scheduleMode;
+      
       const newTodo = {
         id: timestamp,
         text: cleaned,
         time,
-        days: selectedDays.join(','),
-        excludeHolidays: !!excludeHolidays,
-        scheduleMode: scheduleMode,
+        days,
+        excludeHolidays: isMemoMode ? false : !!excludeHolidays,
+        scheduleMode: finalMode,
         completed: false,
         createdAt: timestamp,
         username: currentUser,
-        startDate: rangeStart,
-        endDate: rangeEnd
+        startDate: isMemoMode ? null : rangeStart,
+        endDate: isMemoMode ? null : rangeEnd
       };
       
       const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTodo) });
       if (!res.ok) throw new Error("서버 저장 실패");
 
-      alert(`[${formatTime(time)}] ${cleaned}\n예약이 완료되었습니다! ✅`);
+      if (isMemoMode) {
+        alert(`📝 [메모] ${cleaned}\n메모가 저장되었습니다! ✅`);
+      } else {
+        alert(`[${formatTime(time)}] ${cleaned}\n예약이 완료되었습니다! ✅`);
+      }
+      
       resetForm(true);
-      setListFilter(scheduleMode);
+      setListFilter(finalMode);
       setLastAddedId(timestamp);
       fetchTodos();
     } catch (e) {
@@ -2303,8 +2322,23 @@ function App() {
                                   </div>
                                   <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#e2e8f0' }}>{todo.text}</span>
                                   <div className="todo-meta-premium" style={{ marginTop: '6px' }}>
-                                    <span className="todo-time-badge">{formatTime(todo.time)}</span>
-                                    {todo.days && <span className="todo-days-tag">{todo.days}</span>}
+                                    {todo.scheduleMode !== 'memo' && todo.time && (
+                                      <span className="todo-time-badge">{formatTime(todo.time)}</span>
+                                    )}
+                                    {todo.scheduleMode !== 'memo' && todo.days && (
+                                      <span className="todo-days-tag">{todo.days}</span>
+                                    )}
+                                    {todo.scheduleMode === 'memo' && (
+                                      <span className="memo-badge-small" style={{
+                                        background: 'rgba(16, 185, 129, 0.2)',
+                                        color: '#10b981',
+                                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                                        fontSize: '0.65rem',
+                                        padding: '2px 8px',
+                                        borderRadius: '10px',
+                                        fontWeight: 'bold'
+                                      }}>📝 메모</span>
+                                    )}
                                     <span className="todo-date-tag">🗓️ {new Date(Number(todo.createdAt)).toLocaleDateString()}</span>
                                   </div>
                                 </div>
@@ -2440,8 +2474,23 @@ function App() {
                                 </div>
                                 <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#e2e8f0' }}>{todo.text}</span>
                                 <div className="todo-meta-premium" style={{ marginTop: '6px' }}>
-                                  <span className="todo-time-badge">{formatTime(todo.time)}</span>
-                                  <span className="todo-days-tag">{todo.days}</span>
+                                  {todo.scheduleMode !== 'memo' && todo.time && (
+                                    <span className="todo-time-badge">{formatTime(todo.time)}</span>
+                                  )}
+                                  {todo.scheduleMode !== 'memo' && todo.days && (
+                                    <span className="todo-days-tag">{todo.days}</span>
+                                  )}
+                                  {todo.scheduleMode === 'memo' && (
+                                    <span className="memo-badge-small" style={{
+                                      background: 'rgba(16, 185, 129, 0.2)',
+                                      color: '#10b981',
+                                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                                      fontSize: '0.65rem',
+                                      padding: '2px 8px',
+                                      borderRadius: '10px',
+                                      fontWeight: 'bold'
+                                    }}>📝 메모</span>
+                                  )}
                                 </div>
                               </div>
                               <div className="item-actions">
@@ -2905,8 +2954,23 @@ function App() {
                         <input type="checkbox" checked={todo.completed} onChange={() => toggleTodo(todo)} className="todo-checkbox" />
                         <div className="content-group">
                           <div className="todo-meta">
-                            <span className="todo-time-display">⏰ {formatTime(todo.time)}</span>
-                            <span className="todo-days-tag">{todo.days}</span>
+                            {todo.scheduleMode !== 'memo' && todo.time && (
+                              <span className="todo-time-display">⏰ {formatTime(todo.time)}</span>
+                            )}
+                            {todo.scheduleMode !== 'memo' && todo.days && (
+                              <span className="todo-days-tag">{todo.days}</span>
+                            )}
+                            {todo.scheduleMode === 'memo' && (
+                              <span className="memo-badge" style={{
+                                background: 'rgba(16, 185, 129, 0.2)',
+                                color: '#10b981',
+                                border: '1px solid rgba(16, 185, 129, 0.4)',
+                                fontSize: '0.65rem',
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                fontWeight: 'bold'
+                              }}>📝 메모</span>
+                            )}
                             {!!todo.excludeHolidays && <span className="holiday-tag">🚫휴</span>}
                             {!!todo.isFailed && (
                               <span className="failed-tag" style={{
