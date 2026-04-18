@@ -1051,8 +1051,12 @@ function App() {
     const currentTimeStr = `${String(currentH24).padStart(2, '0')}:${String(currentM24).padStart(2, '0')}`;
 
     // 시간 순으로 정렬된 리스트에서 현재 시각 이후의 첫 번째 항목 찾기
-    const sorted = [...todos].sort((a, b) => a.time.localeCompare(b.time));
-    const nextTask = sorted.find(t => t.time >= currentTimeStr) || sorted[0];
+    const sorted = [...todos].sort((a, b) => {
+      if (!a.time) return 1;
+      if (!b.time) return -1;
+      return a.time.localeCompare(b.time);
+    });
+    const nextTask = sorted.find(t => t.time && t.time >= currentTimeStr) || sorted[0];
 
     if (nextTask) {
       setTimeout(() => {
@@ -1281,7 +1285,7 @@ function App() {
     if (hMatch) {
       const hInt = parseInt(hMatch[1]);
       const displayH = String(hInt > 12 ? hInt - 12 : hInt).padStart(2, '0');
-      if (hInt >= 12) setAmpm('오후');
+      if (hInt >= 12) parsedTime.ampm = '오후';  // 12시 이상은 오후로 설정
       setHour(displayH);
     }
     const mMatch = text.match(/(\d+)\s*분/);
@@ -1289,7 +1293,7 @@ function App() {
     if (mMatch) setMinute(String(parseInt(mMatch[1]) % 60).padStart(2, '0'));
     else if (mRawMatch) setMinute(String(parseInt(mRawMatch[1]) % 60).padStart(2, '0'));
     else if (text.includes('반')) setMinute('30');
-    setAmpm(parsedTime.ampm);
+    setAmpm(parsedTime.ampm);  // 최종 ampm 설정 (시간 파싱 결과 반영됨)
 
     // 3. 업무명 정제 (7시 47분 보호막 소거, '해/줘' 단독 글자 필터 제외) 🛡️
     const filter = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
@@ -1321,7 +1325,49 @@ function App() {
     setRangeEnd(null);
   };
 
-  const addTodo = async () => {
+  // [남개발 팀장] 예약/Enter 버튼 누를 때 시간 파싱 후 저장
+  const handleAddTodo = () => {
+    const text = inputValue.trim();
+    const isMemo = text.includes('메모');
+    const hasTimeKeyword = /\d+\s*시/.test(text);
+    
+    // 시간 키워드가 있고 메모가 아니면 시간 직접 파싱하여 addTodo에 전달
+    if (hasTimeKeyword && !isMemo) {
+      let parsedTime = { ampm: '오전', hour: '07', minute: '00' };
+      
+      if (text.includes('오후') || text.includes('점심') || text.includes('저녁') || text.includes('밤')) {
+        parsedTime.ampm = '오후';
+      } else if (text.includes('오전') || text.includes('아침') || text.includes('새벽')) {
+        parsedTime.ampm = '오전';
+      }
+      
+      const hMatch = text.match(/(\d+)\s*시/);
+      if (hMatch) {
+        const hInt = parseInt(hMatch[1]);
+        const displayH = String(hInt > 12 ? hInt - 12 : hInt).padStart(2, '0');
+        if (hInt >= 12) parsedTime.ampm = '오후';
+        parsedTime.hour = displayH;
+      }
+      
+      const mMatch = text.match(/(\d+)\s*분/);
+      const mRawMatch = text.match(/시\s*(\d+)/);
+      if (mMatch) {
+        parsedTime.minute = String(parseInt(mMatch[1]) % 60).padStart(2, '0');
+      } else if (mRawMatch) {
+        parsedTime.minute = String(parseInt(mRawMatch[1]) % 60).padStart(2, '0');
+      } else if (text.includes('반')) {
+        parsedTime.minute = '30';
+      }
+      
+      // 파싱된 시간을 직접 addTodo에 전달 (setState 비동기 우회)
+      addTodo(parsedTime);
+      return;
+    }
+    
+    addTodo();
+  };
+
+  const addTodo = async (overrideTime = null) => {
     const filter = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
     let rawVal = inputValue.trim();
     let cleaned = rawVal.replace(filter, '').replace(/\s+/g, ' ').trim();
@@ -1345,11 +1391,14 @@ function App() {
       let days = '';
       
       if (!isMemoMode) {
-        // 일정/루틴 모드: 시간과 요일 설정
-        let h = parseInt(hour);
-        if (ampm === '오후' && h !== 12) h += 12;
-        if (ampm === '오전' && h === 12) h = 0;
-        time = `${String(h).padStart(2, '0')}:${minute}`;
+        // 일정/루틴 모드: 시간과 요일 설정 (overrideTime 우선 적용)
+        const useAmpm = overrideTime ? overrideTime.ampm : ampm;
+        const useHour = overrideTime ? overrideTime.hour : hour;
+        const useMinute = overrideTime ? overrideTime.minute : minute;
+        let h = parseInt(useHour);
+        if (useAmpm === '오후' && h !== 12) h += 12;
+        if (useAmpm === '오전' && h === 12) h = 0;
+        time = `${String(h).padStart(2, '0')}:${useMinute}`;
         days = selectedDays.join(',');
         
         const duplicate = todos.find(t => t.time === time);
@@ -1907,7 +1956,7 @@ function App() {
                 padding: '15px',
                 background: 'rgba(99, 102, 241, 0.08)',
                 borderRadius: '12px',
-                border: '1px border-dashed rgba(99, 102, 241, 0.2)',
+                border: '1px dashed rgba(99, 102, 241, 0.2)',
                 textAlign: 'center'
               }}>
                 <p style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#818cf8', fontWeight: 'bold' }}>🚀 루틴코어 즉시 체험 (권장사례)</p>
@@ -2791,7 +2840,7 @@ function App() {
                 placeholder="일정이나 루틴을 입력하세요..."
                 value={inputValue}
                 onChange={e => setInputValue(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && addTodo()}
+                onKeyPress={e => e.key === 'Enter' && handleAddTodo()}
               />
               <button className={`voice-btn ${isListening ? 'listening' : ''}`} onClick={startVoiceCommand}>
                 <span className="mic-icon">{isListening ? '🛑' : '🎤'}</span>
@@ -2828,7 +2877,15 @@ function App() {
                 <ScrollPicker options={Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))} value={hour} onChange={setHour} unit="시" />
                 <ScrollPicker options={Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'))} value={minute} onChange={setMinute} unit="분" />
               </div>
-              <button className="add-btn-small" onClick={addTodo}>예약</button>
+              <button className="now-btn" onClick={() => {
+                const now = new Date();
+                const h = now.getHours();
+                const m = now.getMinutes();
+                setAmpm(h < 12 ? '오전' : '오후');
+                setHour(String(h % 12 || 12).padStart(2, '0'));
+                setMinute(String(Math.round(m / 5) * 5 % 60).padStart(2, '0'));
+              }}>지금</button>
+              <button className="add-btn-small" onClick={handleAddTodo}>예약</button>
             </div>
           </div>
 

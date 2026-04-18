@@ -782,6 +782,24 @@ body {
   filter: brightness(1.1);
 }
 
+.now-btn {
+  flex: 0.6;
+  height: 100%;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.now-btn:hover {
+  background: rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.7);
+}
+
 /* 할 일 리스트 */
 .todo-list {
   list-style: none;
