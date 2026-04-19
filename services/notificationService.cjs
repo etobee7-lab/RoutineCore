@@ -4,14 +4,13 @@
  * (Supported: WebPush, Allen-Steel Concerts Notifications)
  */
 const webpush = require('web-push');
-require('dotenv').config();
 
 class NotificationService {
     constructor() {
-        // VAPID 키 설정 (환경 변수에서 읽기)
+        // VAPID 키 설정 (환경 변수에서 읽기, 없으면 기본값 사용)
         this.vapidKeys = {
-            publicKey: process.env.VAPID_PUBLIC_KEY,
-            privateKey: process.env.VAPID_PRIVATE_KEY
+            publicKey: process.env.VAPID_PUBLIC_KEY || 'BHQBElHGuk1fdr1WwVk0fcc2KbUBVS9L-tRysmha6cLuUGLFUF3g7SoINdxeWDzhcyCgOOLdyG7iRj2WcZO9Qew',
+            privateKey: process.env.VAPID_PRIVATE_KEY || 'HjuKvvBD78CvbofcQ4GhkbL_XDaZrsz1YPQvZ5cFe-g'
         };
         webpush.setVapidDetails(
             process.env.VAPID_EMAIL || 'mailto:support@example.com',
