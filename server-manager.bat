@@ -31,27 +31,27 @@ taskkill /F /IM cloudflared.exe >nul 2>&1
 
 timeout /t 2 /nobreak >nul
 
-:: Start backend
+:: Start backend in background
 echo   Starting Backend server...
-start "TODO-Backend" cmd /k "node server.cjs"
+start /B node server.cjs
 
 timeout /t 2 /nobreak >nul
 
-:: Start frontend
+:: Start frontend in background
 echo   Starting Frontend server...
-start "TODO-Frontend" cmd /k "npm run dev"
+start /B npm run dev
 
 timeout /t 3 /nobreak >nul
 
-:: Start Cloudflare tunnel for frontend (port 5173)
+:: Start Cloudflare tunnel for frontend
 echo   Starting Cloudflare Tunnel for Frontend...
-start "Cloudflare-Frontend" cloudflared.exe tunnel --url http://localhost:5173
+start /B cloudflared.exe tunnel --url http://localhost:5173
 
 timeout /t 2 /nobreak >nul
 
-:: Start Cloudflare tunnel for backend (port 3000)
+:: Start Cloudflare tunnel for backend
 echo   Starting Cloudflare Tunnel for Backend...
-start "Cloudflare-Backend" cloudflared.exe tunnel --url http://localhost:3000
+start /B cloudflared.exe tunnel --url http://localhost:3000
 
 timeout /t 2 /nobreak >nul
 
@@ -60,10 +60,11 @@ echo ============================================
 echo   All services started!
 echo   Local: http://localhost:5173
 echo   Backend: http://localhost:3000
-echo   Remote Frontend: Check Cloudflare-Frontend window
-echo   Remote Backend: Check Cloudflare-Backend window
+echo   Remote: Check console for Cloudflare URLs
 echo ============================================
 echo.
+echo Press Ctrl+C to stop all services
+echo.
 
-:: Keep window open
-pause
+:: Keep running
+node -e "console.log('Servers running...'); setInterval(() => {}, 1000)"
