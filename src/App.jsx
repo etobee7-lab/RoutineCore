@@ -406,6 +406,103 @@ const DailyScheduleChart = ({ todos }) => {
   );
 };
 
+const WeeklyCalendarView = ({ todos }) => {
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  const today = new Date();
+  const currentDay = today.getDay();
+  
+  // Get todos for each day
+  const getTodosByDay = (dayIndex) => {
+    return todos.filter(todo => {
+      if (todo.scheduleMode === 'memo') return false;
+      if (!todo.days) return false;
+      return todo.days.split(',').includes(String(dayIndex));
+    });
+  };
+
+  const dayColors = {
+    0: '#f87171', // 일 - red
+    1: '#60a5fa', // 월 - blue
+    2: '#34d399', // 화 - green
+    3: '#fbbf24', // 수 - yellow
+    4: '#a78bfa', // 목 - purple
+    5: '#f472b6', // 금 - pink
+    6: '#fb923c'  // 토 - orange
+  };
+
+  return (
+    <div style={{ padding: '10px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px', marginBottom: '20px' }}>
+        {days.map((day, index) => (
+          <div 
+            key={index} 
+            style={{ 
+              textAlign: 'center', 
+              padding: '10px', 
+              borderRadius: '8px',
+              background: index === currentDay ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+              border: index === currentDay ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+              fontWeight: index === currentDay ? 'bold' : 'normal',
+              color: index === currentDay ? '#fff' : '#94a3b8'
+            }}
+          >
+            {day}
+          </div>
+        ))}
+      </div>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+        {days.map((_, dayIndex) => {
+          const dayTodos = getTodosByDay(dayIndex);
+          return (
+            <div 
+              key={dayIndex} 
+              style={{ 
+                minHeight: '200px', 
+                background: 'rgba(255, 255, 255, 0.02)', 
+                borderRadius: '8px', 
+                padding: '8px',
+                border: dayIndex === currentDay ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)'
+              }}
+            >
+              {dayTodos.map((todo, idx) => (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    padding: '6px', 
+                    marginBottom: '6px', 
+                    borderRadius: '4px', 
+                    background: dayColors[dayIndex] + '20',
+                    borderLeft: `3px solid ${dayColors[dayIndex]}`,
+                    fontSize: '0.75rem',
+                    color: '#e2e8f0',
+                    wordBreak: 'break-word'
+                  }}
+                >
+                  {todo.text}
+                  <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
+                    {todo.time}
+                  </div>
+                </div>
+              ))}
+              {dayTodos.length === 0 && (
+                <div style={{ 
+                  textAlign: 'center', 
+                  color: '#64748b', 
+                  fontSize: '0.7rem', 
+                  paddingTop: '80px' 
+                }}>
+                  -
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 function App() {
   // 현재 시간 기준 기본값 계산 함수
   const getDefaultTime = () => {
@@ -680,6 +777,7 @@ function App() {
   const [selectedAfId, setSelectedAfId] = useState(null)
   const [showDailyChart, setShowDailyChart] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const [showWeeklyCalendar, setShowWeeklyCalendar] = useState(false)
 
   // 마이페이지 관련 state
   const [showMyPage, setShowMyPage] = useState(false);
@@ -2146,8 +2244,24 @@ function App() {
           </div>
         </div>
       )}
-      {
-        showDailyChart && (
+
+      {showWeeklyCalendar && (
+        <div className="modal-overlay full-screen" onClick={() => setShowWeeklyCalendar(false)}>
+          <div className="affirmation-modal full-screen" onClick={e => e.stopPropagation()}>
+            <div className="modal-sticky-area" style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#0f172a' }}>
+              <div className="modal-header">
+                <h2>📆 일주일 캘린더</h2>
+                <button className="modal-close-x" onClick={() => setShowWeeklyCalendar(false)}>✕</button>
+              </div>
+            </div>
+            <div className="chart-modal-content" style={{ padding: '20px 15px 60px 15px' }}>
+              <WeeklyCalendarView todos={todos} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDailyChart && (
           <div className="modal-overlay full-screen" onClick={() => setShowDailyChart(false)}>
             <div className="affirmation-modal full-screen" onClick={e => e.stopPropagation()}>
               <div className="modal-sticky-area" style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#0f172a' }}>
@@ -2872,6 +2986,7 @@ function App() {
             </div>
 
             <div className="header-action-grid">
+              <button className="nav-btn calendar" onClick={() => setShowWeeklyCalendar(true)}>📆 일주일 캘린더</button>
               <button className="nav-btn room" onClick={() => setShowSuccessRoom(true)}>🏛️ 성공의 방</button>
               <button className="nav-btn my" onClick={() => setShowMyPage(true)}>👤 MY</button>
               {showInstallBtn && (
