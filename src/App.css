@@ -284,10 +284,10 @@ body {
 }
 
 .user-name-label {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--text-secondary);
-  max-width: 50px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: #fff;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
