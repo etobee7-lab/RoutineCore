@@ -2256,6 +2256,14 @@ function App() {
                     </div>
                   </div>
 
+                  <div className="tab-group-section">
+                    <p className="tab-group-label" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', marginBottom: '8px', paddingLeft: '5px' }}>📊 성과 관리 (PERFORMANCE)</p>
+                    <div className="mypage-tabs no-scrollbar" style={{ padding: 0 }}>
+                      <button className="mypage-tab" onClick={() => setShowAffirmations(true)}><span className="tab-icon-small">✨</span> 확언관리</button>
+                      <button className="mypage-tab" onClick={() => setShowDailyChart(true)}><span className="tab-icon-small">📅</span> 일과표</button>
+                    </div>
+                  </div>
+
                   <div className="tab-group-section" style={{ display: myPageTab === 'alarm' || myPageTab === 'tips' || myPageTab === 'avatar' || myPageTab === 'password' ? 'block' : 'none' }}>
                     <p className="tab-group-label" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', marginBottom: '8px', paddingLeft: '5px' }}>⚙️ 기타 설정 (ETC)</p>
                     <div className="mypage-tabs no-scrollbar" style={{ padding: 0 }}>
@@ -2864,9 +2872,7 @@ function App() {
             </div>
 
             <div className="header-action-grid">
-              <button className="nav-btn aff" onClick={() => setShowAffirmations(true)}>✨ 확언관리</button>
               <button className="nav-btn room" onClick={() => setShowSuccessRoom(true)}>🏛️ 성공의 방</button>
-              <button className="nav-btn chart" onClick={() => setShowDailyChart(true)}>📅 일과표</button>
               <button className="nav-btn my" onClick={() => setShowMyPage(true)}>👤 MY</button>
               {showInstallBtn && (
                 <button className="nav-btn install" onClick={handleInstallClick} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 'bold' }}>📲 앱 설치</button>
