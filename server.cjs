@@ -127,6 +127,19 @@ app.get('/api/profile', async (req, res) => {
     }
 });
 
+// 등록된 사용자 ID 목록 조회 API (master만 접근 가능)
+app.get('/api/admin/users', async (req, res) => {
+    try {
+        const { username } = req.query;
+        if (!username || username.toLowerCase() !== 'master') return res.status(403).json({ error: "권한이 없습니다." });
+
+        const [users] = await pool.query("SELECT username, name, avatar, points, createdAt FROM users ORDER BY createdAt DESC");
+        res.json({ users, count: users.length });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 
 // 푸시 알람 구독 저장 API
