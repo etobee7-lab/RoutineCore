@@ -407,7 +407,16 @@ const DailyScheduleChart = ({ todos }) => {
 };
 
 const WeeklyCalendarView = ({ todos }) => {
-  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  const dayGroups = [
+    ['월', '화', '수'], // 첫줄
+    ['목', '금', '토'], // 둘째줄
+    ['일']              // 셋째줄
+  ];
+  const dayIndices = [
+    [1, 2, 3], // 월화수
+    [4, 5, 6], // 목금토
+    [0]        // 일
+  ];
   const today = new Date();
   const currentDay = today.getDay();
   
@@ -432,73 +441,81 @@ const WeeklyCalendarView = ({ todos }) => {
 
   return (
     <div style={{ padding: '10px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px', marginBottom: '20px' }}>
-        {days.map((day, index) => (
-          <div 
-            key={index} 
-            style={{ 
-              textAlign: 'center', 
-              padding: '10px', 
-              borderRadius: '8px',
-              background: index === currentDay ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-              border: index === currentDay ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
-              fontWeight: index === currentDay ? 'bold' : 'normal',
-              color: index === currentDay ? '#fff' : '#94a3b8'
-            }}
-          >
-            {day}
-          </div>
-        ))}
-      </div>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
-        {days.map((_, dayIndex) => {
-          const dayTodos = getTodosByDay(dayIndex);
-          return (
-            <div 
-              key={dayIndex} 
-              style={{ 
-                minHeight: '200px', 
-                background: 'rgba(255, 255, 255, 0.02)', 
-                borderRadius: '8px', 
-                padding: '8px',
-                border: dayIndex === currentDay ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)'
-              }}
-            >
-              {dayTodos.map((todo, idx) => (
+      {dayGroups.map((group, groupIdx) => (
+        <div key={groupIdx} style={{ marginBottom: '15px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${group.length}, 1fr)`, gap: '8px', marginBottom: '8px' }}>
+            {group.map((day, idx) => {
+              const dayIndex = dayIndices[groupIdx][idx];
+              return (
                 <div 
-                  key={idx} 
+                  key={dayIndex} 
                   style={{ 
-                    padding: '6px', 
-                    marginBottom: '6px', 
-                    borderRadius: '4px', 
-                    background: dayColors[dayIndex] + '20',
-                    borderLeft: `3px solid ${dayColors[dayIndex]}`,
-                    fontSize: '0.75rem',
-                    color: '#e2e8f0',
-                    wordBreak: 'break-word'
+                    textAlign: 'center', 
+                    padding: '10px', 
+                    borderRadius: '8px',
+                    background: dayIndex === currentDay ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+                    border: dayIndex === currentDay ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                    fontWeight: dayIndex === currentDay ? 'bold' : 'normal',
+                    color: dayIndex === currentDay ? '#fff' : '#94a3b8'
                   }}
                 >
-                  {todo.text}
-                  <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
-                    {todo.time}
-                  </div>
+                  {day}
                 </div>
-              ))}
-              {dayTodos.length === 0 && (
-                <div style={{ 
-                  textAlign: 'center', 
-                  color: '#64748b', 
-                  fontSize: '0.7rem', 
-                  paddingTop: '80px' 
-                }}>
-                  -
+              );
+            })}
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${group.length}, 1fr)`, gap: '8px' }}>
+            {group.map((_, idx) => {
+              const dayIndex = dayIndices[groupIdx][idx];
+              const dayTodos = getTodosByDay(dayIndex);
+              return (
+                <div 
+                  key={dayIndex} 
+                  style={{ 
+                    minHeight: '200px', 
+                    background: 'rgba(255, 255, 255, 0.02)', 
+                    borderRadius: '8px', 
+                    padding: '8px',
+                    border: dayIndex === currentDay ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)'
+                  }}
+                >
+                  {dayTodos.map((todo, todoIdx) => (
+                    <div 
+                      key={todoIdx} 
+                      style={{ 
+                        padding: '6px', 
+                        marginBottom: '6px', 
+                        borderRadius: '4px', 
+                        background: dayColors[dayIndex] + '20',
+                        borderLeft: `3px solid ${dayColors[dayIndex]}`,
+                        fontSize: '0.75rem',
+                        color: '#e2e8f0',
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {todo.text}
+                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
+                        {todo.time}
+                      </div>
+                    </div>
+                  ))}
+                  {dayTodos.length === 0 && (
+                    <div style={{ 
+                      textAlign: 'center', 
+                      color: '#64748b', 
+                      fontSize: '0.7rem', 
+                      paddingTop: '80px' 
+                    }}>
+                      -
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
