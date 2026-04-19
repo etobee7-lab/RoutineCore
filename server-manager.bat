@@ -27,6 +27,7 @@ if not exist "node_modules\" (
 :: Stop existing servers
 echo   Stopping existing servers...
 taskkill /F /IM node.exe >nul 2>&1
+taskkill /F /IM cloudflared.exe >nul 2>&1
 
 timeout /t 2 /nobreak >nul
 
@@ -42,9 +43,15 @@ start "TODO-Frontend" cmd /k "npm run dev"
 
 timeout /t 3 /nobreak >nul
 
-:: Start Cloudflare tunnel
-echo   Starting Cloudflare Tunnel...
-start "Cloudflare Tunnel" cloudflared.exe tunnel --url http://localhost:5173
+:: Start Cloudflare tunnel for frontend (port 5173)
+echo   Starting Cloudflare Tunnel for Frontend...
+start "Cloudflare-Frontend" cloudflared.exe tunnel --url http://localhost:5173
+
+timeout /t 2 /nobreak >nul
+
+:: Start Cloudflare tunnel for backend (port 3000)
+echo   Starting Cloudflare Tunnel for Backend...
+start "Cloudflare-Backend" cloudflared.exe tunnel --url http://localhost:3000
 
 timeout /t 2 /nobreak >nul
 
@@ -53,7 +60,8 @@ echo ============================================
 echo   All services started!
 echo   Local: http://localhost:5173
 echo   Backend: http://localhost:3000
-echo   Remote: Check Cloudflare window for URL
+echo   Remote Frontend: Check Cloudflare-Frontend window
+echo   Remote Backend: Check Cloudflare-Backend window
 echo ============================================
 echo.
 

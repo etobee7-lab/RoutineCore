@@ -2,8 +2,18 @@ import { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
 
-// 5173(개발) 접속시 3000포트를 보고, 그 외(배포/외부) 접속시에는 현재 도메인을 그대로 사용
-const API_BASE = window.location.port === '5173' ? `http://${window.location.hostname}:3000` : '';
+// API 설정: 로컬 개발(5173) 시 3000포트 사용, 원격 접속 시 저장된 백엔드 URL 사용
+let API_BASE = '';
+if (window.location.port === '5173') {
+  API_BASE = `http://${window.location.hostname}:3000`;
+} else {
+  // 원격 접속 시 localStorage에 저장된 백엔드 URL 사용
+  const savedBackendUrl = localStorage.getItem('backendUrl');
+  if (savedBackendUrl) {
+    API_BASE = savedBackendUrl;
+  }
+}
+
 const API_URL = `${API_BASE}/api/todos`;
 const AFFIRMATIONS_API_URL = `${API_BASE}/api/affirmations`;
 const LOGIN_API_URL = `${API_BASE}/api/login`;
@@ -599,6 +609,7 @@ function App() {
   const [loginSuccess, setLoginSuccess] = useState('');
   const [signUpName, setSignUpName] = useState('');
   const [signUpConfirmPw, setSignUpConfirmPw] = useState('');
+  const [backendUrlInput, setBackendUrlInput] = useState(localStorage.getItem('backendUrl') || '');
 
   const [useVoiceAlarm, setUseVoiceAlarm] = useState(() => {
     try {
@@ -1887,6 +1898,11 @@ function App() {
     }
   };
 
+  const handleBackendUrlSave = () => {
+    localStorage.setItem('backendUrl', backendUrlInput);
+    window.location.reload();
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="landing-page">
@@ -1938,6 +1954,38 @@ function App() {
                 />
               )}
             </div>
+            {window.location.port !== '5173' && (
+              <div className="backend-url-input-group" style={{
+                marginTop: '15px',
+                padding: '12px',
+                background: 'rgba(16, 185, 129, 0.08)',
+                borderRadius: '8px',
+                border: '1px dashed rgba(16, 185, 129, 0.3)'
+              }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold' }}>📡 원격 접속용 백엔드 URL 설정</p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="백엔드 Cloudflare URL (예: https://xxx.trycloudflare.com)"
+                    value={backendUrlInput}
+                    onChange={(e) => setBackendUrlInput(e.target.value)}
+                    className="login-input"
+                    style={{ flex: 1, fontSize: '0.75rem', padding: '8px 12px' }}
+                  />
+                  <button onClick={handleBackendUrlSave} style={{
+                    padding: '8px 16px',
+                    background: '#10b981',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}>저장</button>
+                </div>
+                <p style={{ margin: '6px 0 0 0', fontSize: '0.7rem', color: '#64748b' }}>* Cloudflare-Backend 창의 URL을 입력하세요.</p>
+              </div>
+            )}
             {loginError && <p className="login-msg error">{loginError}</p>}
             {loginSuccess && <p className="login-msg success">{loginSuccess}</p>}
             <button className={`login-btn ${isSignUpMode ? 'signup-mode' : ''}`} onClick={isSignUpMode ? handleRegister : handleLogin}>
