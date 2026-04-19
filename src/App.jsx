@@ -497,7 +497,10 @@ const WeeklyCalendarView = ({ todos }) => {
                     >
                       {todo.text}
                       <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
-                        {todo.time}
+                        {(() => {
+                          const [h, m] = (todo.time || '09:00').split(':').map(Number);
+                          return `${h < 12 ? '오전' : '오후'} ${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                        })()}
                       </div>
                     </div>
                   ))}
