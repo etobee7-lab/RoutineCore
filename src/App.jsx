@@ -424,7 +424,8 @@ const WeeklyCalendarView = ({ todos }) => {
   const getTodosByDay = (dayIndex) => {
     return todos.filter(todo => {
       if (todo.scheduleMode === 'memo') return false;
-      if (!todo.days) return false;
+      // If no days field, show in all days
+      if (!todo.days) return true;
       return todo.days.split(',').includes(String(dayIndex));
     });
   };
