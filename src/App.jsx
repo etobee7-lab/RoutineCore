@@ -2080,7 +2080,7 @@ function App() {
                 />
               )}
             </div>
-            {window.location.port !== '5173' && (
+            {window.location.hostname.includes('trycloudflare.com') && (
               <div className="backend-url-input-group" style={{
                 marginTop: '15px',
                 padding: '12px',
