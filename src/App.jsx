@@ -1957,12 +1957,14 @@ function App() {
       return;
     }
     try {
+      console.log('Login attempt to:', LOGIN_API_URL);
       const res = await fetch(LOGIN_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: loginId, password: loginPw })
       });
       const data = await res.json();
+      console.log('Login response:', data);
       if (res.ok && data.success) {
         setIsAuthenticated(true);
         setCurrentUser(data.username);
@@ -1977,7 +1979,8 @@ function App() {
         setLoginError(data.error || '로그인에 실패했습니다.');
       }
     } catch (e) {
-      setLoginError('서버에 연결할 수 없습니다.');
+      console.error('Login error:', e);
+      setLoginError('서버에 연결할 수 없습니다. 백엔드 URL을 확인해주세요.');
     }
   };
 
