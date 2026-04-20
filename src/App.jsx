@@ -11,6 +11,10 @@ if (window.location.port === '5173') {
   const savedBackendUrl = localStorage.getItem('backendUrl');
   if (savedBackendUrl) {
     API_BASE = savedBackendUrl;
+  } else {
+    console.warn('Backend URL not set for remote access. Please set it in the login screen.');
+    // 기본값으로 현재 도메인 사용 (Cloudflare 터널이 같은 도메인을 사용하는 경우)
+    API_BASE = `https://${window.location.hostname}`;
   }
 }
 
