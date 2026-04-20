@@ -399,6 +399,10 @@ const DailyScheduleChart = ({ todos }) => {
 
 
 const ScheduleOnlyCalendar = ({ todos }) => {
+  console.log('ScheduleOnlyCalendar received todos:', todos.length);
+  const scheduleTodos = todos.filter(t => t.scheduleMode === 'schedule');
+  console.log('Schedule items count:', scheduleTodos.length);
+  
   const dayGroups = [
     ['월', '화', '수'], // 첫줄
     ['목', '금', '토'], // 둘째줄
@@ -414,12 +418,15 @@ const ScheduleOnlyCalendar = ({ todos }) => {
   
   // Get only schedule todos for each day
   const getScheduleTodosByDay = (dayIndex) => {
-    return todos.filter(todo => {
+    const filtered = todos.filter(todo => {
+      console.log('Todo:', todo.text, 'scheduleMode:', todo.scheduleMode);
       if (todo.scheduleMode !== 'schedule') return false;
       // If no days field, show in all days
       if (!todo.days) return true;
       return todo.days.split(',').includes(String(dayIndex));
     });
+    console.log(`Day ${dayIndex} filtered count:`, filtered.length);
+    return filtered;
   };
 
   const dayColors = {
