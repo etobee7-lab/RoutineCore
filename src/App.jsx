@@ -414,6 +414,7 @@ const WeeklyCalendarView = ({ todos }) => {
   // Get todos for each day
   const getTodosByDay = (dayIndex) => {
     return todos.filter(todo => {
+      console.log('Todo:', todo.text, 'scheduleMode:', todo.scheduleMode);
       if (todo.scheduleMode !== 'schedule') return false;
       // If no days field, show in all days
       if (!todo.days) return true;
