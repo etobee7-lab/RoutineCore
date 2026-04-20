@@ -398,7 +398,7 @@ const DailyScheduleChart = ({ todos }) => {
 };
 
 
-const ScheduleOnlyCalendar = ({ todos }) => {
+const ScheduleOnlyCalendar = ({ todos, startEdit }) => {
   console.log('ScheduleOnlyCalendar received todos:', todos.length);
   const scheduleTodos = todos.filter(t => t.scheduleMode === 'schedule');
   console.log('Schedule items count:', scheduleTodos.length);
@@ -525,6 +525,7 @@ const ScheduleOnlyCalendar = ({ todos }) => {
                   {dayTodos.map((todo) => (
                     <div 
                       key={todo.id} 
+                      onClick={() => startEdit(todo)}
                       style={{ 
                         padding: '6px', 
                         marginBottom: '6px', 
@@ -533,8 +534,12 @@ const ScheduleOnlyCalendar = ({ todos }) => {
                         borderLeft: `3px solid ${dayColors[dayIndex]}`,
                         fontSize: '0.75rem',
                         color: '#e2e8f0',
-                        wordBreak: 'break-word'
+                        wordBreak: 'break-word',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
                       }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = dayColors[dayIndex] + '30'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = dayColors[dayIndex] + '20'}
                     >
                       {todo.text}
                       <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
@@ -2284,7 +2289,7 @@ function App() {
               </div>
             </div>
             <div className="chart-modal-content" style={{ padding: '20px 15px 60px 15px' }}>
-              <ScheduleOnlyCalendar todos={todos} key={JSON.stringify(todos)} />
+              <ScheduleOnlyCalendar todos={todos} startEdit={startEdit} key={JSON.stringify(todos)} />
             </div>
           </div>
         </div>
