@@ -449,14 +449,25 @@ const ScheduleOnlyCalendar = ({ todos }) => {
   const getScheduleTodosByDay = (dayIndex) => {
     const filtered = todos.filter(todo => {
       if (todo.scheduleMode !== 'schedule') return false;
-      // If no days field, show in all days
-      if (!todo.days) return true;
-      // Convert Korean day names to indices and check if dayIndex is included
-      const dayIndicesFromDays = todo.days.split(',').map(day => dayNameToIndex[day.trim()]);
-      return dayIndicesFromDays.includes(dayIndex);
+      
+      // Get the date for this dayIndex
+      const dayDate = new Date(monday);
+      dayDate.setDate(monday.getDate() + dayIndex);
+      const dayDateStr = dayDate.toISOString().split('T')[0];
+      
+      // If no date range, check days field (fallback to old logic)
+      if (!todo.startDate && !todo.endDate) {
+        if (!todo.days) return true;
+        const dayIndicesFromDays = todo.days.split(',').map(day => dayNameToIndex[day.trim()]);
+        return dayIndicesFromDays.includes(dayIndex);
+      }
+      
+      // Check if this day's date falls within the schedule's date range
+      if (todo.startDate && dayDateStr < todo.startDate) return false;
+      if (todo.endDate && dayDateStr > todo.endDate) return false;
+      
+      return true;
     });
-    console.log(`Day ${dayIndex} (${dayIndex === 0 ? '일' : dayIndex === 1 ? '월' : dayIndex === 2 ? '화' : dayIndex === 3 ? '수' : dayIndex === 4 ? '목' : dayIndex === 5 ? '금' : '토'}): ${filtered.length} items`);
-    filtered.forEach(t => console.log(`  - ${t.text}, days: ${t.days}, completed: ${t.completed}`));
     return filtered;
   };
 
