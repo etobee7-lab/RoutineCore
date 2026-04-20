@@ -455,6 +455,8 @@ const ScheduleOnlyCalendar = ({ todos }) => {
       const dayIndicesFromDays = todo.days.split(',').map(day => dayNameToIndex[day.trim()]);
       return dayIndicesFromDays.includes(dayIndex);
     });
+    console.log(`Day ${dayIndex} (${dayIndex === 0 ? '일' : dayIndex === 1 ? '월' : dayIndex === 2 ? '화' : dayIndex === 3 ? '수' : dayIndex === 4 ? '목' : dayIndex === 5 ? '금' : '토'}): ${filtered.length} items`);
+    filtered.forEach(t => console.log(`  - ${t.text}, days: ${t.days}, completed: ${t.completed}`));
     return filtered;
   };
 
