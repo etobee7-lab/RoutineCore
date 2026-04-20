@@ -414,6 +414,26 @@ const ScheduleOnlyCalendar = ({ todos }) => {
     '토': 6
   };
   
+  // Calculate dates for the current week
+  const today = new Date();
+  const currentDay = today.getDay();
+  const currentDayIndex = today.getDay();
+  
+  // Get Monday of the current week (or Sunday if today is Sunday)
+  const monday = new Date(today);
+  const dayOfWeek = today.getDay();
+  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  monday.setDate(today.getDate() + diff);
+  monday.setHours(0, 0, 0, 0);
+  
+  // Get dates for each day of the week
+  const weekDates = {};
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+    weekDates[i] = date.getDate(); // Store day of month
+  }
+  
   const dayGroups = [
     ['월', '화', '수'], // 첫줄
     ['목', '금', '토'], // 둘째줄
@@ -424,8 +444,6 @@ const ScheduleOnlyCalendar = ({ todos }) => {
     [4, 5, 6], // 목금토
     [0]        // 일
   ];
-  const today = new Date();
-  const currentDay = today.getDay();
   
   // Get only schedule todos for each day
   const getScheduleTodosByDay = (dayIndex) => {
@@ -470,7 +488,7 @@ const ScheduleOnlyCalendar = ({ todos }) => {
                     color: dayIndex === currentDay ? '#fff' : '#94a3b8'
                   }}
                 >
-                  {day}
+                  {day} <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{weekDates[dayIndex]}일</span>
                 </div>
               );
             })}
