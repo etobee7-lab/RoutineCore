@@ -414,7 +414,7 @@ const WeeklyCalendarView = ({ todos }) => {
   // Get todos for each day
   const getTodosByDay = (dayIndex) => {
     return todos.filter(todo => {
-      if (todo.scheduleMode === 'memo') return false;
+      if (todo.scheduleMode !== 'schedule') return false;
       // If no days field, show in all days
       if (!todo.days) return true;
       return todo.days.split(',').includes(String(dayIndex));
