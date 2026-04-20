@@ -397,7 +397,8 @@ const DailyScheduleChart = ({ todos }) => {
   );
 };
 
-const WeeklyCalendarView = ({ todos }) => {
+
+const ScheduleOnlyCalendar = ({ todos }) => {
   const dayGroups = [
     ['월', '화', '수'], // 첫줄
     ['목', '금', '토'], // 둘째줄
@@ -411,10 +412,10 @@ const WeeklyCalendarView = ({ todos }) => {
   const today = new Date();
   const currentDay = today.getDay();
   
-  // Get todos for each day
-  const getTodosByDay = (dayIndex) => {
+  // Get only schedule todos for each day
+  const getScheduleTodosByDay = (dayIndex) => {
     return todos.filter(todo => {
-      if (todo.scheduleMode === 'memo') return false;
+      if (todo.scheduleMode !== 'schedule') return false;
       // If no days field, show in all days
       if (!todo.days) return true;
       return todo.days.split(',').includes(String(dayIndex));
@@ -460,7 +461,7 @@ const WeeklyCalendarView = ({ todos }) => {
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${group.length}, 1fr)`, gap: '8px' }}>
             {group.map((_, idx) => {
               const dayIndex = dayIndices[groupIdx][idx];
-              const dayTodos = getTodosByDay(dayIndex);
+              const dayTodos = getScheduleTodosByDay(dayIndex);
               return (
                 <div 
                   key={dayIndex} 
@@ -472,9 +473,9 @@ const WeeklyCalendarView = ({ todos }) => {
                     border: dayIndex === currentDay ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)'
                   }}
                 >
-                  {dayTodos.map((todo, todoIdx) => (
+                  {dayTodos.map((todo) => (
                     <div 
-                      key={todoIdx} 
+                      key={todo.id} 
                       style={{ 
                         padding: '6px', 
                         marginBottom: '6px', 
@@ -514,6 +515,7 @@ const WeeklyCalendarView = ({ todos }) => {
     </div>
   );
 };
+
 
 function App() {
   // 현재 시간 기준 기본값 계산 함수
@@ -789,7 +791,7 @@ function App() {
   const [selectedAfId, setSelectedAfId] = useState(null)
   const [showDailyChart, setShowDailyChart] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
-  const [showWeeklyCalendar, setShowWeeklyCalendar] = useState(false)
+  const [showScheduleCalendar, setShowScheduleCalendar] = useState(false)
 
   // 마이페이지 관련 state
   const [showMyPage, setShowMyPage] = useState(false);
@@ -2223,17 +2225,17 @@ function App() {
         </div>
       )}
 
-      {showWeeklyCalendar && (
-        <div className="modal-overlay full-screen" onClick={() => setShowWeeklyCalendar(false)}>
+      {showScheduleCalendar && (
+        <div className="modal-overlay full-screen" onClick={() => setShowScheduleCalendar(false)}>
           <div className="affirmation-modal full-screen" onClick={e => e.stopPropagation()}>
             <div className="modal-sticky-area" style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#0f172a' }}>
               <div className="modal-header">
-                <h2>📆 일주일 캘린더</h2>
-                <button className="modal-close-x" onClick={() => setShowWeeklyCalendar(false)}>✕</button>
+                <h2>📅 일정 캘린더</h2>
+                <button className="modal-close-x" onClick={() => setShowScheduleCalendar(false)}>✕</button>
               </div>
             </div>
             <div className="chart-modal-content" style={{ padding: '20px 15px 60px 15px' }}>
-              <WeeklyCalendarView todos={todos} key={JSON.stringify(todos)} />
+              <ScheduleOnlyCalendar todos={todos} key={JSON.stringify(todos)} />
             </div>
           </div>
         </div>
@@ -2964,7 +2966,7 @@ function App() {
             </div>
 
             <div className="header-action-grid">
-              <button className="nav-btn calendar" onClick={() => setShowWeeklyCalendar(true)}>📆 일주일 캘린더</button>
+              <button className="nav-btn calendar" onClick={() => setShowScheduleCalendar(true)}>📅 일정 캘린더</button>
               <button className="nav-btn room" onClick={() => setShowSuccessRoom(true)}>🏛️ 성공의 방</button>
               <button className="nav-btn my" onClick={() => setShowMyPage(true)}>👤 MY</button>
               {showInstallBtn && (
