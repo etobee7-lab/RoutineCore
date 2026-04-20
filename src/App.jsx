@@ -414,6 +414,7 @@ const WeeklyCalendarView = ({ todos }) => {
   // Get todos for each day
   const getTodosByDay = (dayIndex) => {
     return todos.filter(todo => {
+      // Only show schedules, filter out routines, memos, and items without scheduleMode
       if (todo.scheduleMode !== 'schedule') return false;
       // If no days field, show in all days
       if (!todo.days) return true;
@@ -2233,7 +2234,7 @@ function App() {
               </div>
             </div>
             <div className="chart-modal-content" style={{ padding: '20px 15px 60px 15px' }}>
-              <WeeklyCalendarView todos={todos} />
+              <WeeklyCalendarView todos={todos} key={JSON.stringify(todos)} />
             </div>
           </div>
         </div>
