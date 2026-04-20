@@ -525,7 +525,10 @@ const ScheduleOnlyCalendar = ({ todos, startEdit }) => {
                   {dayTodos.map((todo) => (
                     <div 
                       key={todo.id} 
-                      onClick={() => startEdit(todo)}
+                      onClick={() => {
+                        console.log('Schedule item clicked:', todo);
+                        startEdit(todo);
+                      }}
                       style={{ 
                         padding: '6px', 
                         marginBottom: '6px', 
