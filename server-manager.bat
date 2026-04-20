@@ -43,15 +43,9 @@ start /B npm run dev
 
 timeout /t 3 /nobreak >nul
 
-:: Start Cloudflare tunnel for frontend
-echo   Starting Cloudflare Tunnel for Frontend...
+:: Start single Cloudflare tunnel with config
+echo   Starting Cloudflare Tunnel...
 start /B cloudflared.exe tunnel --url http://localhost:5173
-
-timeout /t 2 /nobreak >nul
-
-:: Start Cloudflare tunnel for backend
-echo   Starting Cloudflare Tunnel for Backend...
-start /B cloudflared.exe tunnel --url http://localhost:3000
 
 timeout /t 2 /nobreak >nul
 
@@ -60,7 +54,7 @@ echo ============================================
 echo   All services started!
 echo   Local: http://localhost:5173
 echo   Backend: http://localhost:3000
-echo   Remote: Check console for Cloudflare URLs
+echo   Remote: Check console for Cloudflare URL
 echo ============================================
 echo.
 echo Press Ctrl+C to stop all services

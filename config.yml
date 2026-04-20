@@ -1,0 +1,5 @@
+ingress:
+  - hostname: 
+    service: http://localhost:5173
+    path: /*
+  - service: http://localhost:3000
