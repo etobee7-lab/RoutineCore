@@ -402,6 +402,7 @@ const ScheduleOnlyCalendar = ({ todos }) => {
   console.log('ScheduleOnlyCalendar received todos:', todos.length);
   const scheduleTodos = todos.filter(t => t.scheduleMode === 'schedule');
   console.log('Schedule items count:', scheduleTodos.length);
+  scheduleTodos.forEach(t => console.log('Schedule item:', t.text, 'days:', t.days));
   
   const dayGroups = [
     ['월', '화', '수'], // 첫줄
@@ -419,7 +420,7 @@ const ScheduleOnlyCalendar = ({ todos }) => {
   // Get only schedule todos for each day
   const getScheduleTodosByDay = (dayIndex) => {
     const filtered = todos.filter(todo => {
-      console.log('Todo:', todo.text, 'scheduleMode:', todo.scheduleMode);
+      console.log('Todo:', todo.text, 'scheduleMode:', todo.scheduleMode, 'days:', todo.days);
       if (todo.scheduleMode !== 'schedule') return false;
       // If no days field, show in all days
       if (!todo.days) return true;
