@@ -400,37 +400,25 @@ const DailyScheduleChart = ({ todos }) => {
 
 const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
   const [editingTodo, setEditingTodo] = useState(null);
-  const [editValue, setEditValue] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   
   const handleEdit = (todo) => {
     setEditingTodo(todo);
-    setEditValue(todo.text || '');
     setShowEditModal(true);
   };
   
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = () => {
     if (!editingTodo) return;
-    try {
-      await fetch(`${API_BASE}/api/todos/${editingTodo.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: editValue })
-      });
-      setShowEditModal(false);
-      setEditingTodo(null);
-      setEditValue('');
-      // Refresh todos
-      window.location.reload();
-    } catch (e) {
-      console.error('Save failed', e);
-    }
+    // Close calendar modal and open edit in main view
+    setShowEditModal(false);
+    setEditingTodo(null);
+    closeCalendar();
+    startEdit(editingTodo);
   };
   
   const handleCancelEdit = () => {
     setShowEditModal(false);
     setEditingTodo(null);
-    setEditValue('');
   };
   
   console.log('ScheduleOnlyCalendar received todos:', todos.length);
@@ -639,23 +627,10 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
             }}
             onClick={e => e.stopPropagation()}
           >
-            <h3 style={{ color: '#fff', marginBottom: '16px' }}>일정 수정</h3>
-            <input
-              type="text"
-              value={editValue}
-              onChange={e => setEditValue(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                background: 'rgba(0, 0, 0, 0.3)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '8px',
-                color: '#fff',
-                fontSize: '1rem',
-                marginBottom: '16px'
-              }}
-              autoFocus
-            />
+            <h3 style={{ color: '#fff', marginBottom: '16px' }}>일정 편집</h3>
+            <p style={{ color: '#e2e8f0', marginBottom: '20px' }}>
+              "{editingTodo.text}" 일정을 편집하시겠습니까?
+            </p>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button
                 onClick={handleCancelEdit}
@@ -683,7 +658,7 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
                   cursor: 'pointer'
                 }}
               >
-                저장
+                편집
               </button>
             </div>
           </div>
