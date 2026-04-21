@@ -399,6 +399,36 @@ const DailyScheduleChart = ({ todos }) => {
 
 
 const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
+  const [editingTodo, setEditingTodo] = useState(null);
+  const [editValue, setEditValue] = useState('');
+  
+  const handleEdit = (todo) => {
+    setEditingTodo(todo.id);
+    setEditValue(todo.text || '');
+  };
+  
+  const handleSaveEdit = async () => {
+    if (!editingTodo) return;
+    try {
+      await fetch(`${API_BASE}/api/todos/${editingTodo}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: editValue })
+      });
+      setEditingTodo(null);
+      setEditValue('');
+      // Refresh todos
+      window.location.reload();
+    } catch (e) {
+      console.error('Save failed', e);
+    }
+  };
+  
+  const handleCancelEdit = () => {
+    setEditingTodo(null);
+    setEditValue('');
+  };
+  
   console.log('ScheduleOnlyCalendar received todos:', todos.length);
   const scheduleTodos = todos.filter(t => t.scheduleMode === 'schedule');
   console.log('Schedule items count:', scheduleTodos.length);
@@ -468,6 +498,14 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
       
       return true;
     });
+    
+    // Sort by time
+    filtered.sort((a, b) => {
+      const timeA = a.time || '00:00';
+      const timeB = b.time || '00:00';
+      return timeA.localeCompare(timeB);
+    });
+    
     return filtered;
   };
 
@@ -527,8 +565,7 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
                       key={todo.id} 
                       onClick={() => {
                         console.log('Schedule item clicked:', todo);
-                        closeCalendar();
-                        startEdit(todo);
+                        handleEdit(todo);
                       }}
                       style={{ 
                         padding: '6px', 
@@ -545,13 +582,65 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
                       onMouseEnter={(e) => e.currentTarget.style.background = dayColors[dayIndex] + '30'}
                       onMouseLeave={(e) => e.currentTarget.style.background = dayColors[dayIndex] + '20'}
                     >
-                      {todo.text}
-                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
-                        {(() => {
-                          const [h, m] = (todo.time || '09:00').split(':').map(Number);
-                          return `${h < 12 ? '오전' : '오후'} ${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                        })()}
-                      </div>
+                      {editingTodo === todo.id ? (
+                        <div onClick={e => e.stopPropagation()}>
+                          <input 
+                            type="text" 
+                            value={editValue} 
+                            onChange={e => setEditValue(e.target.value)}
+                            style={{ 
+                              width: '100%', 
+                              padding: '4px', 
+                              background: 'rgba(0,0,0,0.3)', 
+                              border: '1px solid rgba(255,255,255,0.2)', 
+                              borderRadius: '4px', 
+                              color: '#fff', 
+                              fontSize: '0.75rem' 
+                            }} 
+                            autoFocus
+                          />
+                          <div style={{ marginTop: '4px', display: 'flex', gap: '4px' }}>
+                            <button 
+                              onClick={handleSaveEdit}
+                              style={{ 
+                                padding: '2px 8px', 
+                                background: '#22c55e', 
+                                border: 'none', 
+                                borderRadius: '4px', 
+                                color: '#fff', 
+                                fontSize: '0.65rem', 
+                                cursor: 'pointer' 
+                              }}
+                            >
+                              저장
+                            </button>
+                            <button 
+                              onClick={handleCancelEdit}
+                              style={{ 
+                                padding: '2px 8px', 
+                                background: '#ef4444', 
+                                border: 'none', 
+                                borderRadius: '4px', 
+                                color: '#fff', 
+                                fontSize: '0.65rem', 
+                                cursor: 'pointer' 
+                              }}
+                            >
+                              취소
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {todo.text}
+                          <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
+                            {(() => {
+                              const [h, m] = (todo.time || '09:00').split(':').map(Number);
+                              return `${h < 12 ? '오전' : '오후'} ${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                            })()}
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                   {dayTodos.length === 0 && (
