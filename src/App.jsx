@@ -401,20 +401,23 @@ const DailyScheduleChart = ({ todos }) => {
 const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
   const [editingTodo, setEditingTodo] = useState(null);
   const [editValue, setEditValue] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
   
   const handleEdit = (todo) => {
-    setEditingTodo(todo.id);
+    setEditingTodo(todo);
     setEditValue(todo.text || '');
+    setShowEditModal(true);
   };
   
   const handleSaveEdit = async () => {
     if (!editingTodo) return;
     try {
-      await fetch(`${API_BASE}/api/todos/${editingTodo}`, {
+      await fetch(`${API_BASE}/api/todos/${editingTodo.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: editValue })
       });
+      setShowEditModal(false);
       setEditingTodo(null);
       setEditValue('');
       // Refresh todos
@@ -425,6 +428,7 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
   };
   
   const handleCancelEdit = () => {
+    setShowEditModal(false);
     setEditingTodo(null);
     setEditValue('');
   };
@@ -582,65 +586,13 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
                       onMouseEnter={(e) => e.currentTarget.style.background = dayColors[dayIndex] + '30'}
                       onMouseLeave={(e) => e.currentTarget.style.background = dayColors[dayIndex] + '20'}
                     >
-                      {editingTodo === todo.id ? (
-                        <div onClick={e => e.stopPropagation()}>
-                          <input 
-                            type="text" 
-                            value={editValue} 
-                            onChange={e => setEditValue(e.target.value)}
-                            style={{ 
-                              width: '100%', 
-                              padding: '4px', 
-                              background: 'rgba(0,0,0,0.3)', 
-                              border: '1px solid rgba(255,255,255,0.2)', 
-                              borderRadius: '4px', 
-                              color: '#fff', 
-                              fontSize: '0.75rem' 
-                            }} 
-                            autoFocus
-                          />
-                          <div style={{ marginTop: '4px', display: 'flex', gap: '4px' }}>
-                            <button 
-                              onClick={handleSaveEdit}
-                              style={{ 
-                                padding: '2px 8px', 
-                                background: '#22c55e', 
-                                border: 'none', 
-                                borderRadius: '4px', 
-                                color: '#fff', 
-                                fontSize: '0.65rem', 
-                                cursor: 'pointer' 
-                              }}
-                            >
-                              저장
-                            </button>
-                            <button 
-                              onClick={handleCancelEdit}
-                              style={{ 
-                                padding: '2px 8px', 
-                                background: '#ef4444', 
-                                border: 'none', 
-                                borderRadius: '4px', 
-                                color: '#fff', 
-                                fontSize: '0.65rem', 
-                                cursor: 'pointer' 
-                              }}
-                            >
-                              취소
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          {todo.text}
-                          <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
-                            {(() => {
-                              const [h, m] = (todo.time || '09:00').split(':').map(Number);
-                              return `${h < 12 ? '오전' : '오후'} ${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                            })()}
-                          </div>
-                        </>
-                      )}
+                      {todo.text}
+                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
+                        {(() => {
+                          const [h, m] = (todo.time || '09:00').split(':').map(Number);
+                          return `${h < 12 ? '오전' : '오후'} ${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                        })()}
+                      </div>
                     </div>
                   ))}
                   {dayTodos.length === 0 && (
@@ -659,6 +611,84 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
           </div>
         </div>
       ))}
+      
+      {showEditModal && editingTodo && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999
+          }}
+          onClick={handleCancelEdit}
+        >
+          <div 
+            style={{
+              background: '#1e293b',
+              padding: '24px',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '400px',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 style={{ color: '#fff', marginBottom: '16px' }}>일정 수정</h3>
+            <input
+              type="text"
+              value={editValue}
+              onChange={e => setEditValue(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: 'rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '8px',
+                color: '#fff',
+                fontSize: '1rem',
+                marginBottom: '16px'
+              }}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={handleCancelEdit}
+                style={{
+                  padding: '8px 16px',
+                  background: '#ef4444',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer'
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                style={{
+                  padding: '8px 16px',
+                  background: '#22c55e',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer'
+                }}
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
