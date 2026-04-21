@@ -243,7 +243,8 @@ function ScrollPicker({ options, value, onChange, unit }) {
 
   const handleClick = (idx) => {
     if (!scrollRef.current) return;
-    scrollRef.current.scrollTo({ top: idx * itemHeight, behavior: 'smooth' });
+    const actualIdx = idx % options.length;
+    scrollRef.current.scrollTo({ top: (middleStart + actualIdx) * itemHeight, behavior: 'smooth' });
   };
 
   return (
@@ -403,17 +404,9 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   
   const handleEdit = (todo) => {
-    setEditingTodo(todo);
-    setShowEditModal(true);
-  };
-  
-  const handleSaveEdit = () => {
-    if (!editingTodo) return;
-    // Close calendar modal and open edit in main view
-    setShowEditModal(false);
-    setEditingTodo(null);
+    // [남개발 팀장] 대표님 지시: 확인 절차 없이 즉시 수정 모드 진입!
     closeCalendar();
-    startEdit(editingTodo);
+    startEdit(todo);
   };
   
   const handleCancelEdit = () => {
@@ -600,70 +593,7 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
         </div>
       ))}
       
-      {showEditModal && editingTodo && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.7)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 9999
-          }}
-          onClick={handleCancelEdit}
-        >
-          <div 
-            style={{
-              background: '#1e293b',
-              padding: '24px',
-              borderRadius: '12px',
-              width: '90%',
-              maxWidth: '400px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <h3 style={{ color: '#fff', marginBottom: '16px' }}>일정 편집</h3>
-            <p style={{ color: '#e2e8f0', marginBottom: '20px' }}>
-              "{editingTodo.text}" 일정을 편집하시겠습니까?
-            </p>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button
-                onClick={handleCancelEdit}
-                style={{
-                  padding: '8px 16px',
-                  background: '#ef4444',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '0.9rem',
-                  cursor: 'pointer'
-                }}
-              >
-                취소
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                style={{
-                  padding: '8px 16px',
-                  background: '#22c55e',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '0.9rem',
-                  cursor: 'pointer'
-                }}
-              >
-                편집
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* [남개발 팀장] 확인 모달은 이제 사용하지 않음 (즉시 수정 진입) */}
     </div>
   );
 };
@@ -1024,6 +954,19 @@ function App() {
     }
   }, [todos, lastAddedId]);
 
+  // [남개발 부장] 수정 모드 진입 시 해당 위치로 정밀 자동 스크롤 (대표님 지시: 캘린더 연동 강화)
+  useEffect(() => {
+    if (editingId) {
+      // 리스트가 렌더링될 시간을 줍니다 (필터링 등으로 인해 새로 그려질 수 있음)
+      setTimeout(() => {
+        const el = document.getElementById(`todo-${editingId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+    }
+  }, [editingId]);
+
   // [남개발 부장] 기간 선택 시 해당하는 요일들을 자동으로 추출하는 지능형 도우미
   const getDaysInRange = (start, end) => {
     if (!start || !end) return [];
@@ -1041,14 +984,57 @@ function App() {
     return Array.from(days);
   };
 
+  // [남개발 부장] 요일 배열을 바탕으로 현재 주차의 날짜 범위를 계산하는 순수 도우미 함수
+  const getRangeFromDays = (days) => {
+    if (!days || days.length === 0) return { start: null, end: null };
+    const DAY_MAP = { '일': 6, '월': 0, '화': 1, '수': 2, '목': 3, '금': 4, '토': 5 }; // 월요일 기준 인덱스 (Date.getDay()와 다름)
+    
+    // 유효한 요일만 필터링하고 정렬
+    const indices = days.map(d => DAY_MAP[d]).filter(idx => idx !== undefined).sort((a, b) => a - b);
+    if (indices.length === 0) return { start: null, end: null };
+
+    const minIdx = indices[0];
+    const maxIdx = indices[indices.length - 1];
+
+    const now = new Date();
+    const day = now.getDay();
+    // Monday of current week calculation
+    const diff = now.getDate() - (day === 0 ? 6 : day - 1);
+    const monday = new Date(now.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+
+    const startDate = new Date(monday);
+    startDate.setDate(monday.getDate() + minIdx);
+    
+    const endDate = new Date(monday);
+    endDate.setDate(monday.getDate() + maxIdx);
+
+    return {
+      start: toStdDateStr(startDate),
+      end: toStdDateStr(endDate)
+    };
+  };
+
+  // [남개발 부장] 요일 선택 시 현재 주차 내의 해당 날짜 범위로 캘린더 자동 동기화 (대표님 지시)
+  const syncDaysToRange = (days, setStart, setEnd) => {
+    const { start, end } = getRangeFromDays(days);
+    setStart(start);
+    setEnd(end);
+  };
+
   // [남개발 부장] 날짜 비교를 위한 표준 포맷 도우미 (YYYY-MM-DD)
   const toStdDateStr = (d) => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
 
-  // [남개발 부장] 캘린더 오픈 시 빈 시작일을 '오늘'로 자동 고정!
+  // [남개발 부장] 캘린더 오픈 시 기간이 없으면 현재 선택된 요일에 맞춰 자동 계산!
   const handleOpenCalendar = () => {
     if (!rangeStart) {
-      const todayStr = toStdDateStr(new Date());
-      setRangeStart(todayStr);
+      const { start, end } = getRangeFromDays(editingId ? editDays : selectedDays);
+      if (start) {
+        setRangeStart(start);
+        setRangeEnd(end);
+      } else {
+        setRangeStart(toStdDateStr(new Date()));
+      }
     }
     setShowCalendar(true);
   };
@@ -2641,7 +2627,11 @@ function App() {
                                 <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
                                 <div className="edit-days-row">
                                   {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-                                    <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => setEditDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}>{d}</button>
+                                    <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => {
+                                      const next = editDays.includes(d) ? editDays.filter(x => x !== d) : [...editDays, d];
+                                      setEditDays(next);
+                                      syncDaysToRange(next, setRangeStart, setRangeEnd);
+                                    }}>{d}</button>
                                   ))}
                                 </div>
                                 <div className="input-helper-row edit-mode">
@@ -2793,12 +2783,28 @@ function App() {
                               <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
                               <div className="edit-days-row">
                                 {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-                                  <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => setEditDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}>{d}</button>
+                                  <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => {
+                                    const next = editDays.includes(d) ? editDays.filter(x => x !== d) : [...editDays, d];
+                                    setEditDays(next);
+                                    syncDaysToRange(next, setRangeStart, setRangeEnd);
+                                  }}>{d}</button>
                                 ))}
                               </div>
                               <div className="input-helper-row edit-mode">
                                 <label className="holiday-toggle">
-                                  <input type="checkbox" checked={editExcludeHolidays} onChange={e => setEditExcludeHolidays(e.target.checked)} />
+                                  <input type="checkbox" checked={editExcludeHolidays} onChange={e => {
+                                    const isChecked = e.target.checked;
+                                    setEditExcludeHolidays(isChecked);
+                                    if (isChecked) {
+                                      const next = ['월', '화', '수', '목', '금'];
+                                      setEditDays(next);
+                                      syncDaysToRange(next, setRangeStart, setRangeEnd);
+                                    } else {
+                                      const next = ['월', '화', '수', '목', '금', '토', '일'];
+                                      setEditDays(next);
+                                      syncDaysToRange(next, setRangeStart, setRangeEnd);
+                                    }
+                                  }} />
                                   <span>공휴일/주말 제외</span>
                                 </label>
                                 <button type="button" className="clear-form-btn" onClick={() => resetEditForm()}>초기화</button>
@@ -3150,16 +3156,22 @@ function App() {
             <div className="day-selector-wrap">
               <div className="days-toggle-row">
                 {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-                  <button key={d} className={`day-btn ${selectedDays.includes(d) ? 'active' : ''}`} onClick={() => setSelectedDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}>{d}</button>
+                  <button key={d} className={`day-btn ${selectedDays.includes(d) ? 'active' : ''}`} onClick={() => {
+                    const next = selectedDays.includes(d) ? selectedDays.filter(x => x !== d) : [...selectedDays, d];
+                    setSelectedDays(next);
+                    syncDaysToRange(next, setRangeStart, setRangeEnd);
+                  }}>{d}</button>
                 ))}
               </div>
               <div className="input-helper-row">
                 <div className="left-options">
                   <label className="holiday-toggle">
                     <input type="checkbox" checked={excludeHolidays} onChange={e => {
-                      setExcludeHolidays(e.target.checked);
-                      if (e.target.checked) setSelectedDays(['월', '화', '수', '목', '금']);
-                      else setSelectedDays(['월', '화', '수', '목', '금', '토', '일']);
+                      const isChecked = e.target.checked;
+                      setExcludeHolidays(isChecked);
+                      const nextDays = isChecked ? ['월', '화', '수', '목', '금'] : ['월', '화', '수', '목', '금', '토', '일'];
+                      setSelectedDays(nextDays);
+                      syncDaysToRange(nextDays, setRangeStart, setRangeEnd);
                     }} />
                     <span>주말 제외</span>
                   </label>
@@ -3210,28 +3222,33 @@ function App() {
             const isWeekend = new Date().getDay() === 0 || new Date().getDay() === 6;
 
             const filtered = todos.filter(t => {
+              // [남개발 팀장] 수정 중인 항목은 필터와 관계없이 무조건 노출 (유연성 확보)
+              if (editingId === t.id) return true;
+
               const dayList = t.days ? t.days.split(',').map(d => d.trim()) : [];
               const isScheduledToday = dayList.includes(currentDay);
               const hasScheduleKeyword = t.text && t.text.includes('일정');
               const isSchedule = t.scheduleMode === 'schedule' || hasScheduleKeyword;
               const isMemo = t.scheduleMode === 'memo' || (t.text && (t.text.includes('메모') || t.text.includes('아이디어')));
 
-              const createdDate = t.createdAt ? new Date(Number(t.createdAt)).toLocaleDateString() : '';
-              const isCreatedToday = createdDate === new Date().toLocaleDateString();
+              const todayStr = new Date().toISOString().split('T')[0];
+              const isCreatedToday = (t.createdAt ? new Date(Number(t.createdAt)).toLocaleDateString() : '') === new Date().toLocaleDateString();
+              
+              // [남개발 부장] 기간 기반 노출 로직 (캘린더와 동일한 엔진 장착)
+              const isInDateRange = (!t.startDate || todayStr >= t.startDate) && (!t.endDate || todayStr <= t.endDate);
+              const shouldShowBySchedule = isScheduledToday && isInDateRange;
 
               if (listFilter === 'all') {
                 const showRoutine = isScheduledToday || !t.days;
-                // [남개발 부장] 오늘 생성되었거나, "아직 완료되지 않은(남아 있는)" 일정/메모는 이월해서 보여줌
-                const showEffectiveScheduleOrMemo = (isSchedule || isMemo) && (isCreatedToday || !t.completed);
+                // 루틴이 아닌 경우: 오늘 요일/기간에 해당하거나, 오늘 생성했거나, 아직 미완료인 경우 노출
+                const showEffectiveScheduleOrMemo = (isSchedule || isMemo) && (shouldShowBySchedule || isCreatedToday || !t.completed);
                 return (t.scheduleMode === 'routine' || !t.scheduleMode) ? showRoutine : showEffectiveScheduleOrMemo;
               } else if (listFilter === 'routine') {
                 const isRoutine = (t.scheduleMode === 'routine' || !t.scheduleMode) && !hasScheduleKeyword && !isMemo;
                 return isRoutine && (isScheduledToday || !t.days);
               } else if (listFilter === 'schedule') {
-                // 일정 탭에서도 미완료 건은 계속 노출
-                return isSchedule && (isCreatedToday || !t.completed);
+                return isSchedule && (shouldShowBySchedule || isCreatedToday || !t.completed);
               } else if (listFilter === 'memo') {
-                // 메모 탭에서도 미완료 건은 계속 노출
                 return isMemo && (isCreatedToday || !t.completed);
               }
               return false;
@@ -3259,7 +3276,11 @@ function App() {
                       <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
                       <div className="edit-days-row">
                         {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-                          <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => setEditDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])}>{d}</button>
+                          <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => {
+                            const next = editDays.includes(d) ? editDays.filter(x => x !== d) : [...editDays, d];
+                            setEditDays(next);
+                            syncDaysToRange(next, setRangeStart, setRangeEnd);
+                          }}>{d}</button>
                         ))}
                       </div>
                       <div className="input-helper-row edit-mode">
@@ -3272,9 +3293,13 @@ function App() {
                                 const isChecked = e.target.checked;
                                 setEditExcludeHolidays(isChecked);
                                 if (isChecked) {
-                                  setEditDays(['월', '화', '수', '목', '금']); // 평일만 선택
+                                  const next = ['월', '화', '수', '목', '금'];
+                                  setEditDays(next);
+                                  syncDaysToRange(next, setRangeStart, setRangeEnd);
                                 } else {
-                                  setEditDays(['월', '화', '수', '목', '금', '토', '일']); // 전체 선택
+                                  const next = ['월', '화', '수', '목', '금', '토', '일'];
+                                  setEditDays(next);
+                                  syncDaysToRange(next, setRangeStart, setRangeEnd);
                                 }
                               }}
                             />
@@ -3307,7 +3332,8 @@ function App() {
                       <div className="todo-left" onClick={(e) => {
                         // 체크박스 자체 클릭 시에는 중복 실행 방지
                         if (e.target.type === 'checkbox') return;
-                        toggleTodo(todo);
+                        // [남개발 팀장] 대표님 지시: 항목 클릭 시 토글 대신 바로 수정 모드 진입!
+                        startEdit(todo);
                       }} style={{ cursor: 'pointer' }}>
                         <input type="checkbox" checked={todo.completed} onChange={() => toggleTodo(todo)} className="todo-checkbox" />
                         <div className="content-group">
