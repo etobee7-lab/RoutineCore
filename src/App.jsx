@@ -184,6 +184,7 @@ function ScrollPicker({ options, value, onChange, unit }) {
   // 초기 위치 설정 (중앙 섹션의 선택된 값으로)
   useEffect(() => {
     if (scrollRef.current) {
+      const paddingTop = 30;
       // [남개발 부장] 리스트에 없는 값(1분 단위)이 들어오면 근사치 인덱스 활용
       const valInt = parseInt(value);
       const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
@@ -191,15 +192,16 @@ function ScrollPicker({ options, value, onChange, unit }) {
       if (selectedIndex === -1) selectedIndex = options.indexOf(roundedVal);
       if (selectedIndex === -1) selectedIndex = 0;
 
-      scrollRef.current.scrollTop = (middleStart + selectedIndex) * itemHeight;
+      scrollRef.current.scrollTop = paddingTop + (middleStart + selectedIndex) * itemHeight;
     }
   }, []);
 
   // 외부에서 value가 바뀔 때 (수정 모드 등) 대응
   useEffect(() => {
     if (scrollRef.current) {
+      const paddingTop = 30;
       const currentScrollTop = scrollRef.current.scrollTop;
-      const currentIndex = Math.round(currentScrollTop / itemHeight) % options.length;
+      const currentIndex = Math.round((currentScrollTop - paddingTop) / itemHeight) % options.length;
 
       const valInt = parseInt(value);
       const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
@@ -208,8 +210,8 @@ function ScrollPicker({ options, value, onChange, unit }) {
       if (targetIndex === -1) targetIndex = 0;
 
       if (currentIndex !== targetIndex) {
-        const currentSegment = Math.floor(currentScrollTop / (options.length * itemHeight));
-        scrollRef.current.scrollTop = (currentSegment * options.length + targetIndex) * itemHeight;
+        const currentSegment = Math.floor((currentScrollTop - paddingTop) / (options.length * itemHeight));
+        scrollRef.current.scrollTop = paddingTop + (currentSegment * options.length + targetIndex) * itemHeight;
       }
     }
   }, [value, options]);
@@ -217,18 +219,19 @@ function ScrollPicker({ options, value, onChange, unit }) {
   const handleScroll = () => {
     if (!scrollRef.current) return;
     const { scrollTop } = scrollRef.current;
+    const paddingTop = 30; // picker-padding-top height
 
     // 무한 루프 점프 로직 개선 (버퍼 추가로 끊김 방지)
     const totalHeight = options.length * itemHeight;
-    if (scrollTop < itemHeight) {
+    if (scrollTop < itemHeight + paddingTop) {
       scrollRef.current.scrollTop = scrollTop + totalHeight;
       return;
-    } else if (scrollTop > totalHeight * 2 - itemHeight) {
+    } else if (scrollTop > totalHeight * 2 + paddingTop - itemHeight) {
       scrollRef.current.scrollTop = scrollTop - totalHeight;
       return;
     }
 
-    const index = Math.round(scrollTop / itemHeight) % options.length;
+    const index = Math.round((scrollTop - paddingTop) / itemHeight) % options.length;
     const selectedValue = options[index];
 
     // [남개발 부장] 핵심 로직: 현재 값이 1분 단위(예: 07)인 경우, 
@@ -244,7 +247,8 @@ function ScrollPicker({ options, value, onChange, unit }) {
   const handleClick = (idx) => {
     if (!scrollRef.current) return;
     const actualIdx = idx % options.length;
-    scrollRef.current.scrollTo({ top: (middleStart + actualIdx) * itemHeight, behavior: 'smooth' });
+    const paddingTop = 30;
+    scrollRef.current.scrollTo({ top: paddingTop + (middleStart + actualIdx) * itemHeight, behavior: 'smooth' });
   };
 
   return (
