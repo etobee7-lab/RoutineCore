@@ -503,15 +503,24 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
   const getScheduleTodosByDay = (dayIndex, dateStr) => {
     const filtered = todos.filter(todo => {
       if (todo.scheduleMode !== 'schedule') return false;
-      if (!todo.startDate && !todo.endDate) {
-        if (!todo.days) return true;
+
+      // 날짜 범위 체크
+      if (todo.startDate && dateStr < todo.startDate) return false;
+      if (todo.endDate && dateStr > todo.endDate) return false;
+
+      // 요일 체크 (days 필드가 있으면 반드시 요일 일치 확인)
+      if (todo.days) {
         const indices = todo.days.split(',').map(d => dayNameToIndex[d.trim()]);
         return indices.includes(dayIndex);
       }
-      if (todo.startDate && dateStr < todo.startDate) return false;
-      if (todo.endDate && dateStr > todo.endDate) return false;
+
       return true;
     });
+
+    if (dateStr === todayStr) {
+      console.log(`[오늘 ${dateStr} dayIndex=${dayIndex}] 필터 결과 ${filtered.length}개:`, filtered.map(t => `${t.text}(days:${t.days}, start:${t.startDate}, end:${t.endDate})`));
+    }
+
     filtered.sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
     return filtered;
   };
