@@ -284,10 +284,10 @@ body {
 }
 
 .user-name-label {
-  font-size: var(--text-sm);
-  font-weight: 700;
-  color: #fff;
-  max-width: 120px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  max-width: 50px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3237,4 +3237,84 @@ body {
 .confirm-range-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(59, 130, 246, 0.5);
+}
+
+/* [남개발 부장] 시각적 성취 히트맵 스타일 (Idea 2) */
+.heatmap-wrapper {
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-x: auto;
+}
+
+.heatmap-header-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 5px;
+}
+
+.heatmap-weekday-label {
+  font-size: 0.65rem;
+  color: #64748b;
+  text-align: center;
+  font-weight: bold;
+}
+
+.heatmap-grid-container {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+.heatmap-cell.future {
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.heatmap-cell.level-0 { background-color: rgba(255, 255, 255, 0.05); }
+.heatmap-cell.level-1 { background-color: #1e3a8a; } /* 연한 파랑 */
+.heatmap-cell.level-2 { background-color: #2563eb; } /* 중간 파랑 */
+.heatmap-cell.level-3 { background-color: #3b82f6; } /* 진한 파랑 */
+.heatmap-cell.level-4 { background-color: #60a5fa; box-shadow: 0 0 5px rgba(96, 165, 250, 0.5); } /* 초진한 파랑 + 글로우 */
+
+.heatmap-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.legend-text {
+  font-size: 0.65rem;
+  color: #64748b;
+}
+
+.legend-cells {
+  display: flex;
+  gap: 3px;
+}
+
+.legend-cells .heatmap-cell {
+  width: 10px;
+  height: 10px;
+}
+
+.heatmap-empty {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+  font-size: 0.9rem;
 }

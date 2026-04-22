@@ -270,7 +270,23 @@ async function initDB() {
                 username VARCHAR(50) UNIQUE NOT NULL,
                 password VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
                 name VARCHAR(100) DEFAULT '',
-                createdAt BIGINT
+                createdAt BIGINT,
+                avatar VARCHAR(255) DEFAULT '😊',
+                points INT DEFAULT 0
+            )
+        `);
+
+        // [남개발 부장] 히트맵 구현을 위한 일일 성취 기록 테이블 구축
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS achievement_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(50) NOT NULL,
+                date VARCHAR(20) NOT NULL,
+                total_missions INT DEFAULT 0,
+                completed_missions INT DEFAULT 0,
+                points_earned INT DEFAULT 0,
+                createdAt BIGINT,
+                UNIQUE KEY idx_user_date (username, date)
             )
         `);
 
@@ -343,6 +359,13 @@ async function startServer() {
                         await pool.query("UPDATE users SET points = points + ? WHERE username = ?", [percent, user.username]);
                         console.log(`[CRON] ${user.username}님 어제(${dayStr}) 미션 정산: ${percent} 포인트 지급 (완료건수: ${completedMissions})`);
                     }
+
+                    // [남개발 부장] 히트맵 데이터를 위해 로그 테이블에 기록 남김
+                    const dateStr = yesterdayDate.toISOString().split('T')[0];
+                    await pool.query(
+                        "INSERT INTO achievement_logs (username, date, total_missions, completed_missions, points_earned, createdAt) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE total_missions = ?, completed_missions = ?, points_earned = ?",
+                        [user.username, dateStr, totalMissions, completedMissions, percent, Date.now(), totalMissions, completedMissions, percent]
+                    );
                 }
 
                 // 2. '루틴(routine)' 모드는 완료/실패 상태만 초기화 (다음 날 재빌드)
@@ -405,6 +428,27 @@ async function startServer() {
         }
     });
 }
+
+// ===== STATS & HEATMAP =====
+app.get('/api/stats/heatmap', async (req, res) => {
+    try {
+        const { username } = req.query;
+        if (!username) return res.status(400).json({ error: "username 필요" });
+
+        // 최근 1년치 데이터 조회
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        const dateLimit = oneYearAgo.toISOString().split('T')[0];
+
+        const [rows] = await pool.query(
+            "SELECT date, total_missions, completed_missions, points_earned FROM achievement_logs WHERE username = ? AND date >= ? ORDER BY date ASC",
+            [username, dateLimit]
+        );
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 startServer();
 

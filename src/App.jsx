@@ -402,6 +402,73 @@ const DailyScheduleChart = ({ todos }) => {
   );
 };
 
+// [남개발 부장] 시각적 성취 히트맵 컴포넌트 (Idea 2)
+const AchievementHeatmap = ({ data }) => {
+  if (!data) return null;
+
+  // 최근 1년치(52주) 날짜 데이터 생성
+  const today = new Date();
+  const days = [];
+  // 시작 날짜를 작년 오늘로부터 일요일까지 앞으로 당겨서 7열 격자를 맞춤
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - 364);
+  const startDay = startDate.getDay();
+  startDate.setDate(startDate.getDate() - startDay); // 해당 주의 일요일로 맞춤
+
+  const totalDays = 371; // 약 53주 (7 * 53)
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+
+  const dataMap = data.reduce((acc, row) => {
+    acc[row.date] = row.completed_missions / (row.total_missions || 1);
+    return acc;
+  }, {});
+
+  const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
+
+  return (
+    <div className="heatmap-wrapper">
+      <div className="heatmap-header-row">
+        {weekDays.map(d => <span key={d} className="heatmap-weekday-label">{d}</span>)}
+      </div>
+      <div className="heatmap-grid-container">
+        {days.map(date => {
+          const ratio = dataMap[date] || 0;
+          let level = 0;
+          if (ratio > 0) level = 1;
+          if (ratio > 0.3) level = 2;
+          if (ratio > 0.6) level = 3;
+          if (ratio >= 0.9) level = 4;
+          
+          const isFuture = date > today.toISOString().split('T')[0];
+
+          return (
+            <div 
+              key={date} 
+              className={`heatmap-cell level-${level} ${isFuture ? 'future' : ''}`} 
+              title={`${date}: ${Math.round(ratio * 100)}% 달성`}
+            />
+          );
+        })}
+      </div>
+      <div className="heatmap-footer">
+        <span className="legend-text">Less</span>
+        <div className="legend-cells">
+          <div className="heatmap-cell level-0"></div>
+          <div className="heatmap-cell level-1"></div>
+          <div className="heatmap-cell level-2"></div>
+          <div className="heatmap-cell level-3"></div>
+          <div className="heatmap-cell level-4"></div>
+        </div>
+        <span className="legend-text">More</span>
+      </div>
+    </div>
+  );
+};
+
 
 const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
   const [editingTodo, setEditingTodo] = useState(null);
@@ -689,6 +756,9 @@ function App() {
   const [showCalendar, setShowCalendar] = useState(false); // 달력 노출 여부
   const [rangeStart, setRangeStart] = useState(null);       // 시작일
   const [rangeEnd, setRangeEnd] = useState(null);           // 종료일
+
+  // [남개발 부장] 히트맵 데이터 상태 (Idea 2)
+  const [heatmapData, setHeatmapData] = useState([]);
 
 
   // [남개발 팀장] 지능형 모드 감지 엔진 (대표님 지시: 기본=일정, 루틴/메모는 키워드 필수)
@@ -1112,9 +1182,23 @@ function App() {
       if (itemResp.ok) {
         setOwnedItems(await itemResp.json());
       }
+
+      // [남개발 부장] 히트맵 데이터도 함께 로드
+      fetchHeatmapData();
     } catch (e) {
       console.error("Profile fetch failed", e);
     }
+  };
+
+  const fetchHeatmapData = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/stats/heatmap?username=${currentUser}`);
+      if (res.ok) {
+        const data = await res.json();
+        setHeatmapData(data);
+      }
+    } catch (e) { console.error("Heatmap fetch failed", e); }
   };
 
   const handlePurchaseItem = async (item) => {
@@ -2495,6 +2579,7 @@ function App() {
                   <div className="tab-group-section">
                     <p className="tab-group-label" style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', marginBottom: '8px', paddingLeft: '5px' }}>📊 성과 관리 (PERFORMANCE)</p>
                     <div className="mypage-tabs no-scrollbar" style={{ padding: 0 }}>
+                      <button className={`mypage-tab ${myPageTab === 'heatmap' ? 'active' : ''}`} onClick={() => { setMyPageTab('heatmap'); fetchHeatmapData(); }}><span className="tab-icon-small">📈</span> 성취기록</button>
                       <button className="mypage-tab" onClick={() => setShowAffirmations(true)}><span className="tab-icon-small">✨</span> 확언관리</button>
                       <button className="mypage-tab" onClick={() => setShowDailyChart(true)}><span className="tab-icon-small">📅</span> 일과표</button>
                     </div>
@@ -2697,6 +2782,18 @@ function App() {
                           </div>
                         ));
                     })()}
+                  </div>
+                </div>
+              )}
+              {myPageTab === 'heatmap' && (
+                <div className="mypage-section heatmap-section">
+                  <p className="mypage-label">📈 연간 루틴 성취 히트맵</p>
+                  <p className="mypage-subtitle" style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '-10px 20px 20px 20px' }}>
+                    지난 1년간의 꾸준함을 시각적으로 확인하세요.<br />
+                    색이 짙을수록 해당 날짜의 루틴 달성률이 높음을 의미합니다.
+                  </p>
+                  <div style={{ padding: '0 20px 30px 20px' }}>
+                    <AchievementHeatmap data={heatmapData} />
                   </div>
                 </div>
               )}
