@@ -478,9 +478,16 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
   };
   const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
+  const toLocalDateStr = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = toLocalDateStr(today);
   const currentDayIndex = today.getDay();
 
   const monday = new Date(today);
@@ -490,7 +497,7 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    return { dayIndex: (i + 1) % 7, date: d, dateStr: d.toISOString().split('T')[0] };
+    return { dayIndex: (i + 1) % 7, date: d, dateStr: toLocalDateStr(d) };
   });
 
   const getScheduleTodosByDay = (dayIndex, dateStr) => {
