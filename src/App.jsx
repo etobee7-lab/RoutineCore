@@ -471,200 +471,134 @@ const AchievementHeatmap = ({ data }) => {
 
 
 const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
-  const [editingTodo, setEditingTodo] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  
-  const handleEdit = (todo) => {
-    // [남개발 팀장] 대표님 지시: 확인 절차 없이 즉시 수정 모드 진입!
-    closeCalendar();
-    startEdit(todo);
+  const dayNameToIndex = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
+  const dayColors = {
+    0: '#f87171', 1: '#60a5fa', 2: '#34d399',
+    3: '#fbbf24', 4: '#a78bfa', 5: '#f472b6', 6: '#fb923c'
   };
-  
-  const handleCancelEdit = () => {
-    setShowEditModal(false);
-    setEditingTodo(null);
-  };
-  
-  console.log('ScheduleOnlyCalendar received todos:', todos.length);
-  const scheduleTodos = todos.filter(t => t.scheduleMode === 'schedule');
-  console.log('Schedule items count:', scheduleTodos.length);
-  
-  // Korean day to index mapping
-  const dayNameToIndex = {
-    '일': 0,
-    '월': 1,
-    '화': 2,
-    '수': 3,
-    '목': 4,
-    '금': 5,
-    '토': 6
-  };
-  
-  // Calculate dates for the current week
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+
   const today = new Date();
-  const currentDay = today.getDay();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split('T')[0];
   const currentDayIndex = today.getDay();
-  
-  // Get Monday of the current week (or Sunday if today is Sunday)
+
   const monday = new Date(today);
-  const dayOfWeek = today.getDay();
-  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const diff = today.getDay() === 0 ? -6 : 1 - today.getDay();
   monday.setDate(today.getDate() + diff);
-  monday.setHours(0, 0, 0, 0);
-  
-  // Get dates for each day of the week
-  const weekDates = {};
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
-    weekDates[i] = date.getDate(); // Store day of month
-  }
-  
-  const dayGroups = [
-    ['월', '화', '수'], // 첫줄
-    ['목', '금', '토'], // 둘째줄
-    ['일']              // 셋째줄
-  ];
-  const dayIndices = [
-    [1, 2, 3], // 월화수
-    [4, 5, 6], // 목금토
-    [0]        // 일
-  ];
-  
-  // Get only schedule todos for each day
-  const getScheduleTodosByDay = (dayIndex) => {
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return { dayIndex: (i + 1) % 7, date: d, dateStr: d.toISOString().split('T')[0] };
+  });
+
+  const getScheduleTodosByDay = (dayIndex, dateStr) => {
     const filtered = todos.filter(todo => {
       if (todo.scheduleMode !== 'schedule') return false;
-      
-      // Get the date for this dayIndex
-      const dayDate = new Date(monday);
-      dayDate.setDate(monday.getDate() + dayIndex);
-      const dayDateStr = dayDate.toISOString().split('T')[0];
-      
-      // If no date range, check days field (fallback to old logic)
       if (!todo.startDate && !todo.endDate) {
         if (!todo.days) return true;
-        const dayIndicesFromDays = todo.days.split(',').map(day => dayNameToIndex[day.trim()]);
-        return dayIndicesFromDays.includes(dayIndex);
+        const indices = todo.days.split(',').map(d => dayNameToIndex[d.trim()]);
+        return indices.includes(dayIndex);
       }
-      
-      // Check if this day's date falls within the schedule's date range
-      if (todo.startDate && dayDateStr < todo.startDate) return false;
-      if (todo.endDate && dayDateStr > todo.endDate) return false;
-      
+      if (todo.startDate && dateStr < todo.startDate) return false;
+      if (todo.endDate && dateStr > todo.endDate) return false;
       return true;
     });
-    
-    // Sort by time
-    filtered.sort((a, b) => {
-      const timeA = a.time || '00:00';
-      const timeB = b.time || '00:00';
-      return timeA.localeCompare(timeB);
-    });
-    
+    filtered.sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
     return filtered;
   };
 
-  const dayColors = {
-    0: '#f87171', // 일 - red
-    1: '#60a5fa', // 월 - blue
-    2: '#34d399', // 화 - green
-    3: '#fbbf24', // 수 - yellow
-    4: '#a78bfa', // 목 - purple
-    5: '#f472b6', // 금 - pink
-    6: '#fb923c'  // 토 - orange
+  const formatTime = (timeStr) => {
+    const [h, m] = (timeStr || '09:00').split(':').map(Number);
+    return `${h < 12 ? '오전' : '오후'} ${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
   return (
-    <div style={{ padding: '10px' }}>
-      {dayGroups.map((group, groupIdx) => (
-        <div key={groupIdx} style={{ marginBottom: '15px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${group.length}, 1fr)`, gap: '8px', marginBottom: '8px' }}>
-            {group.map((day, idx) => {
-              const dayIndex = dayIndices[groupIdx][idx];
-              return (
-                <div 
-                  key={dayIndex} 
-                  style={{ 
-                    textAlign: 'center', 
-                    padding: '10px', 
-                    borderRadius: '8px',
-                    background: dayIndex === currentDay ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-                    border: dayIndex === currentDay ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
-                    fontWeight: dayIndex === currentDay ? 'bold' : 'normal',
-                    color: dayIndex === currentDay ? '#fff' : '#94a3b8'
-                  }}
-                >
-                  {day} <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{weekDates[dayIndex]}일</span>
-                </div>
-              );
-            })}
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${group.length}, 1fr)`, gap: '8px' }}>
-            {group.map((_, idx) => {
-              const dayIndex = dayIndices[groupIdx][idx];
-              const dayTodos = getScheduleTodosByDay(dayIndex);
-              return (
-                <div 
-                  key={dayIndex} 
-                  style={{ 
-                    minHeight: '200px', 
-                    background: 'rgba(255, 255, 255, 0.02)', 
-                    borderRadius: '8px', 
-                    padding: '8px',
-                    border: dayIndex === currentDay ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)'
-                  }}
-                >
-                  {dayTodos.map((todo) => (
-                    <div 
-                      key={todo.id} 
-                      onClick={() => {
-                        console.log('Schedule item clicked:', todo);
-                        handleEdit(todo);
-                      }}
-                      style={{ 
-                        padding: '6px', 
-                        marginBottom: '6px', 
-                        borderRadius: '4px', 
-                        background: dayColors[dayIndex] + '20',
-                        borderLeft: `3px solid ${dayColors[dayIndex]}`,
-                        fontSize: '0.75rem',
-                        color: '#e2e8f0',
-                        wordBreak: 'break-word',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = dayColors[dayIndex] + '30'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = dayColors[dayIndex] + '20'}
-                    >
-                      {todo.text}
-                      <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>
-                        {(() => {
-                          const [h, m] = (todo.time || '09:00').split(':').map(Number);
-                          return `${h < 12 ? '오전' : '오후'} ${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                        })()}
-                      </div>
-                    </div>
-                  ))}
-                  {dayTodos.length === 0 && (
-                    <div style={{ 
-                      textAlign: 'center', 
-                      color: '#64748b', 
-                      fontSize: '0.7rem', 
-                      paddingTop: '80px' 
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
+      {weekDays.map(({ dayIndex, date, dateStr }) => {
+        const dayTodos = getScheduleTodosByDay(dayIndex, dateStr);
+        const isToday = dateStr === todayStr;
+        const color = dayColors[dayIndex];
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+
+        return (
+          <div
+            key={dayIndex}
+            style={{
+              borderRadius: '12px',
+              background: isToday ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255,255,255,0.03)',
+              border: isToday ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.07)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* 요일 헤더 */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 14px',
+              background: isToday ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)',
+              borderBottom: dayTodos.length > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none'
+            }}>
+              <span style={{
+                width: '32px', height: '32px',
+                borderRadius: '50%',
+                background: isToday ? color : 'rgba(255,255,255,0.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.85rem', fontWeight: 'bold',
+                color: isToday ? '#fff' : color,
+                border: isToday ? 'none' : `1px solid ${color}40`,
+                flexShrink: 0
+              }}>
+                {dayNames[dayIndex]}
+              </span>
+              <span style={{ color: isToday ? '#e2e8f0' : '#94a3b8', fontSize: '0.85rem', fontWeight: isToday ? '700' : '500' }}>
+                {month}월 {day}일
+                {isToday && <span style={{ marginLeft: '6px', fontSize: '0.7rem', background: color, color: '#fff', padding: '1px 6px', borderRadius: '8px' }}>오늘</span>}
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: '#475569' }}>
+                {dayTodos.length > 0 ? `${dayTodos.length}개` : '일정 없음'}
+              </span>
+            </div>
+
+            {/* 일정 목록 */}
+            {dayTodos.length > 0 && (
+              <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {dayTodos.map(todo => (
+                  <div
+                    key={todo.id}
+                    onClick={() => { closeCalendar(); startEdit(todo); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      background: color + '15',
+                      borderLeft: `3px solid ${color}`,
+                      cursor: 'pointer',
+                      transition: 'background 0.15s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = color + '28'}
+                    onMouseLeave={e => e.currentTarget.style.background = color + '15'}
+                  >
+                    <span style={{
+                      fontSize: '0.7rem', color: color, fontWeight: '700',
+                      minWidth: '52px', flexShrink: 0
                     }}>
-                      -
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                      {formatTime(todo.time)}
+                    </span>
+                    <span style={{ fontSize: '0.82rem', color: '#e2e8f0', flex: 1, wordBreak: 'break-word', lineHeight: '1.35' }}>
+                      {todo.text}
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: '#475569', flexShrink: 0 }}>✏️</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
-      
-      {/* [남개발 팀장] 확인 모달은 이제 사용하지 않음 (즉시 수정 진입) */}
+        );
+      })}
     </div>
   );
 };
