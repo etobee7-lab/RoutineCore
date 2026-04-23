@@ -497,8 +497,10 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    return { dayIndex: (i + 1) % 7, date: d, dateStr: toLocalDateStr(d) };
+    const di = d.getDay(); // 실제 JS 요일 (0=일,1=월,...6=토)
+    return { dayIndex: di, date: d, dateStr: toLocalDateStr(d) };
   });
+  console.log('[weekDays]', weekDays.map(w => `${w.dateStr}(dayIndex=${w.dayIndex})`));
 
   const getScheduleTodosByDay = (dayIndex, dateStr) => {
     const filtered = todos.filter(todo => {
@@ -509,8 +511,8 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
       if (todo.endDate && dateStr > todo.endDate) return false;
 
       // 요일 체크 (days 필드가 있으면 반드시 요일 일치 확인)
-      if (todo.days) {
-        const indices = todo.days.split(',').map(d => dayNameToIndex[d.trim()]);
+      if (todo.days && todo.days.trim() !== '') {
+        const indices = todo.days.split(',').map(d => dayNameToIndex[d.trim()]).filter(i => i !== undefined);
         return indices.includes(dayIndex);
       }
 
@@ -518,7 +520,12 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
     });
 
     if (dateStr === todayStr) {
-      console.log(`[오늘 ${dateStr} dayIndex=${dayIndex}] 필터 결과 ${filtered.length}개:`, filtered.map(t => `${t.text}(days:${t.days}, start:${t.startDate}, end:${t.endDate})`));
+      console.log(`[오늘 ${dateStr} dayIndex=${dayIndex}] 필터 결과 ${filtered.length}개:`);
+      todos.filter(t => t.scheduleMode === 'schedule').forEach(t => {
+        const inRange = (!t.startDate || dateStr >= t.startDate) && (!t.endDate || dateStr <= t.endDate);
+        const dayMatch = !t.days || t.days.split(',').map(d => dayNameToIndex[d.trim()]).includes(dayIndex);
+        console.log(`  ${inRange && dayMatch ? '✅' : '❌'} [${t.text}] days="${t.days}" start="${t.startDate}" end="${t.endDate}" inRange=${inRange} dayMatch=${dayMatch}`);
+      });
     }
 
     filtered.sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
