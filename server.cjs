@@ -290,6 +290,18 @@ async function initDB() {
             )
         `);
 
+        // [남개발 팀장] 날짜 사이클(Date Cycle) 저장을 위한 상세 완료 기록 테이블 추가
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS daily_completions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                todo_id BIGINT NOT NULL,
+                date VARCHAR(20) NOT NULL,
+                username VARCHAR(50) NOT NULL,
+                createdAt BIGINT,
+                UNIQUE KEY idx_todo_date (todo_id, date)
+            )
+        `);
+
         // 기존 테이블 구조 보강 (Migration)
         const tablesToUpdate = ['todos', 'routines', 'schedules', 'memos'];
         for (const table of tablesToUpdate) {
@@ -370,7 +382,15 @@ async function startServer() {
 
                 // 2. '루틴(routine)' 모드는 완료/실패 상태만 초기화 (다음 날 재빌드)
                 await pool.query("UPDATE routines SET completed = false, isFailed = false WHERE username = ?", [user.username]);
-                // [남개발 부장] 일정(schedules)도 완료 상태 초기화가 필요하다면 여기서 수행 (요청 시 추가 가능)
+                
+                // [남개발 팀장] 일정(schedules) 중 오늘 요일이었는데 미완료인 것들은 '실패(쉬어감)' 처리 (날짜 정합성)
+                const dateStr = yesterdayDate.toISOString().split('T')[0];
+                await pool.query(`
+                    UPDATE schedules 
+                    SET isFailed = true 
+                    WHERE username = ? AND completed = false AND isFailed = false 
+                    AND (days LIKE ? OR days = '')
+                `, [user.username, `%${dayStr}%`]);
             }
             console.log(`[CRON] 자정 정산 및 데이터 정리 완료 (일정 삭제/루틴 초기화)`);
         } catch (err) {
