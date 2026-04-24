@@ -1380,6 +1380,31 @@ body {
   background: #0f172a !important;
 }
 
+.nav-arrow {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.nav-arrow:hover { background: rgba(255,255,255,0.15); }
+
+.nav-today-btn {
+  background: rgba(99,102,241,0.2);
+  border: 1px solid rgba(99,102,241,0.4);
+  color: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 800;
+  transition: background 0.2s;
+}
+.nav-today-btn:hover { background: rgba(99,102,241,0.35); }
+
 .admin-overlay {
   display: flex !important;
   justify-content: center !important;
