@@ -2558,8 +2558,8 @@ function App() {
       )}
 
       {showScheduleCalendar && (
-        <div className="modal-overlay full-screen no-padding" style={{ background: '#0f172a', zIndex: 2000 }}>
-          <div className="modal-content-full scroll-style-none" style={{ background: '#0f172a', width: '100%', height: '100%', overflowY: 'auto' }}>
+        <div className="modal-overlay full-screen no-padding" style={{ background: 'rgba(0,0,0,0.6)', zIndex: 2000, display: 'flex', justifyContent: 'center' }}>
+          <div className="modal-content-full scroll-style-none" style={{ background: '#0f172a', width: '100%', maxWidth: '420px', height: '100%', overflowY: 'auto' }}>
             <ScheduleOnlyCalendar 
               todos={todos} 
               startEdit={startEdit} 
