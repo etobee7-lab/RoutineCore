@@ -604,7 +604,7 @@ const ScheduleOnlyCalendar = ({ todos, completions, startEdit, closeCalendar, to
         position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(20px)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <div className="brand-logo" onClick={() => setShowDailyChart(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+          <div className="brand-logo" onClick={closeCalendar} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
             <img src="/logo512.png" alt="Logo" style={{ width: '30px', height: '30px', filter: 'drop-shadow(0 0 8px rgba(96, 165, 250, 0.4))' }} />
             <div style={{ marginLeft: '8px' }}>
               <h1 style={{ fontSize: '1.05rem', margin: 0, color: '#fff', fontWeight: '900', letterSpacing: '-0.8px', lineHeight: 1.1 }}>Routine</h1>
@@ -637,19 +637,6 @@ const ScheduleOnlyCalendar = ({ todos, completions, startEdit, closeCalendar, to
               <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: '700' }}>{currentUser}</span>
             </div>
 
-            <button onClick={closeCalendar} style={{
-              background: 'rgba(255,255,255,0.06)',
-              color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.12)',
-              padding: '6px 13px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '800',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
-              letterSpacing: '-0.2px', transition: 'all 0.2s',
-              backdropFilter: 'blur(8px)'
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background='rgba(239,68,68,0.18)'; e.currentTarget.style.color='#fca5a5'; e.currentTarget.style.borderColor='rgba(239,68,68,0.35)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.06)'; e.currentTarget.style.color='#cbd5e1'; e.currentTarget.style.borderColor='rgba(255,255,255,0.12)'; }}
-            >
-              <span style={{ fontSize: '0.75rem' }}>◀</span> 나가기
-            </button>
             <button className="exit-btn" onClick={() => {
               setIsAuthenticated(false);
               setCurrentUser('');
@@ -2651,6 +2638,34 @@ function App() {
               setIsAuthenticated={setIsAuthenticated}
               setCurrentUser={setCurrentUser}
             />
+            {/* 하단 sticky 닫기 버튼 */}
+            <div style={{
+              position: 'sticky', bottom: 0,
+              background: 'linear-gradient(to top, rgba(15,23,42,1) 65%, rgba(15,23,42,0))',
+              padding: '28px 20px 24px',
+              display: 'flex', justifyContent: 'center',
+              pointerEvents: 'none'
+            }}>
+              <button
+                onClick={() => setShowScheduleCalendar(false)}
+                style={{
+                  pointerEvents: 'auto',
+                  background: 'linear-gradient(135deg, rgba(239,68,68,0.9), rgba(220,38,38,0.95))',
+                  color: '#fff',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  padding: '13px 32px',
+                  borderRadius: '50px',
+                  fontWeight: '900',
+                  fontSize: '0.95rem',
+                  boxShadow: '0 8px 28px rgba(239,68,68,0.45), 0 2px 8px rgba(0,0,0,0.4)',
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  cursor: 'pointer',
+                  letterSpacing: '-0.3px'
+                }}
+              >
+                ← 대시보드로 돌아가기
+              </button>
+            </div>
           </div>
         </div>
       )}
