@@ -638,12 +638,18 @@ const ScheduleOnlyCalendar = ({ todos, completions, startEdit, closeCalendar, to
             </div>
 
             <button onClick={closeCalendar} style={{
-              background: 'linear-gradient(135deg, rgba(239,68,68,0.85), rgba(220,38,38,0.9))',
-              color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
-              padding: '7px 14px', borderRadius: '20px', fontSize: '0.82rem', fontWeight: '900',
-              boxShadow: '0 4px 12px rgba(239,68,68,0.35)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '5px', letterSpacing: '-0.2px'
-            }}>← 나가기</button>
+              background: 'rgba(255,255,255,0.06)',
+              color: '#cbd5e1', border: '1px solid rgba(255,255,255,0.12)',
+              padding: '6px 13px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '800',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+              letterSpacing: '-0.2px', transition: 'all 0.2s',
+              backdropFilter: 'blur(8px)'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background='rgba(239,68,68,0.18)'; e.currentTarget.style.color='#fca5a5'; e.currentTarget.style.borderColor='rgba(239,68,68,0.35)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.06)'; e.currentTarget.style.color='#cbd5e1'; e.currentTarget.style.borderColor='rgba(255,255,255,0.12)'; }}
+            >
+              <span style={{ fontSize: '0.75rem' }}>◀</span> 나가기
+            </button>
             <button className="exit-btn" onClick={() => {
               setIsAuthenticated(false);
               setCurrentUser('');
