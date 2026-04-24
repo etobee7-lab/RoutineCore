@@ -670,8 +670,8 @@ body {
   display: flex;
   gap: 0.4rem;
   align-items: center;
-  height: 50px;
-  /* ??볦퍢 ?醫뤾문 ?怨몃열 ?誘れ뵠 ?곕벡??*/
+  height: 84px;
+  /* [남개발 부장] 28px * 3개 항목 노출 규격으로 통일 */
 }
 
 .ampm-toggle-group {
@@ -729,7 +729,7 @@ body {
 
 .picker-padding-top,
 .picker-padding-bottom {
-  height: 20px;
+  height: 28px;
   /* ?λ뜃由??誘れ뵠 ??쇱젟, JS?癒?퐣 癰귣똻???*/
 }
 
@@ -2950,13 +2950,14 @@ body {
   position: sticky;
   top: 0;
   z-index: 1001;
-  background: #0f172a;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   padding: 1.2rem;
-  /* 부모 패딩과 동일하게 복구 */
   margin: -1.2rem -1.2rem 1.2rem -1.2rem;
-  /* 부모의 1.2rem 패딩을 정확히 상쇄 */
-  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 32px 32px 0 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .mypage-content-area {
