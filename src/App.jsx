@@ -6,6 +6,7 @@ import './App.css'
 const API_BASE = '';
 
 const API_URL = `${API_BASE}/api/todos`;
+const API_URL_COMPLETIONS = `${API_BASE}/api/daily-completions`;
 const AFFIRMATIONS_API_URL = `${API_BASE}/api/affirmations`;
 const LOGIN_API_URL = `${API_BASE}/api/login`;
 const REGISTER_API_URL = `${API_BASE}/api/register`;
@@ -177,14 +178,14 @@ const playAlarmSound = (soundId) => {
 
 function ScrollPicker({ options, value, onChange, unit }) {
   const scrollRef = useRef(null);
-  const itemHeight = 20; // 최신 CSS 규격에 맞춰 수정
+  const itemHeight = 28; // [남개발 부장] 항목 높이
+  const paddingTop = 28; // [남개발 부장] 패딩 높이 (항목 1개분)
   const extendedOptions = [...options, ...options, ...options]; // 3배 확장하여 루프 구현
   const middleStart = options.length;
 
   // 초기 위치 설정 (중앙 섹션의 선택된 값으로)
   useEffect(() => {
     if (scrollRef.current) {
-      const paddingTop = 30;
       // [남개발 부장] 리스트에 없는 값(1분 단위)이 들어오면 근사치 인덱스 활용
       const valInt = parseInt(value);
       const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
@@ -192,16 +193,16 @@ function ScrollPicker({ options, value, onChange, unit }) {
       if (selectedIndex === -1) selectedIndex = options.indexOf(roundedVal);
       if (selectedIndex === -1) selectedIndex = 0;
 
-      scrollRef.current.scrollTop = paddingTop + (middleStart + selectedIndex) * itemHeight;
+      // 중앙 정렬 공식: (인덱스 * 높이) -> 패딩이 높이와 같으므로 상쇄됨
+      scrollRef.current.scrollTop = (middleStart + selectedIndex) * itemHeight;
     }
   }, []);
 
   // 외부에서 value가 바뀔 때 (수정 모드 등) 대응
   useEffect(() => {
     if (scrollRef.current) {
-      const paddingTop = 30;
       const currentScrollTop = scrollRef.current.scrollTop;
-      const currentIndex = Math.round((currentScrollTop - paddingTop) / itemHeight) % options.length;
+      const currentIndex = Math.round(currentScrollTop / itemHeight) % options.length;
 
       const valInt = parseInt(value);
       const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
@@ -210,8 +211,8 @@ function ScrollPicker({ options, value, onChange, unit }) {
       if (targetIndex === -1) targetIndex = 0;
 
       if (currentIndex !== targetIndex) {
-        const currentSegment = Math.floor((currentScrollTop - paddingTop) / (options.length * itemHeight));
-        scrollRef.current.scrollTop = paddingTop + (currentSegment * options.length + targetIndex) * itemHeight;
+        const currentSegment = Math.floor(currentScrollTop / (options.length * itemHeight));
+        scrollRef.current.scrollTop = (currentSegment * options.length + targetIndex) * itemHeight;
       }
     }
   }, [value, options]);
@@ -219,19 +220,18 @@ function ScrollPicker({ options, value, onChange, unit }) {
   const handleScroll = () => {
     if (!scrollRef.current) return;
     const { scrollTop } = scrollRef.current;
-    const paddingTop = 30; // picker-padding-top height
 
     // 무한 루프 점프 로직 개선 (버퍼 추가로 끊김 방지)
     const totalHeight = options.length * itemHeight;
-    if (scrollTop < itemHeight + paddingTop) {
+    if (scrollTop < itemHeight) {
       scrollRef.current.scrollTop = scrollTop + totalHeight;
       return;
-    } else if (scrollTop > totalHeight * 2 + paddingTop - itemHeight) {
+    } else if (scrollTop > totalHeight * 2 - itemHeight) {
       scrollRef.current.scrollTop = scrollTop - totalHeight;
       return;
     }
 
-    const index = Math.round((scrollTop - paddingTop) / itemHeight) % options.length;
+    const index = Math.round(scrollTop / itemHeight) % options.length;
     const selectedValue = options[index];
 
     // [남개발 부장] 핵심 로직: 현재 값이 1분 단위(예: 07)인 경우, 
@@ -247,14 +247,15 @@ function ScrollPicker({ options, value, onChange, unit }) {
   const handleClick = (idx) => {
     if (!scrollRef.current) return;
     const actualIdx = idx % options.length;
-    const paddingTop = 30;
-    scrollRef.current.scrollTo({ top: paddingTop + (middleStart + actualIdx) * itemHeight, behavior: 'smooth' });
+    const currentScrollTop = scrollRef.current.scrollTop;
+    const currentSegment = Math.floor(currentScrollTop / (options.length * itemHeight));
+    scrollRef.current.scrollTo({ top: (currentSegment * options.length + actualIdx) * itemHeight, behavior: 'smooth' });
   };
 
   return (
     <div className="picker-column">
       <div className="picker-scroll-container" ref={scrollRef} onScroll={handleScroll}>
-        <div className="picker-padding-top" style={{ height: '30px' }} />
+        <div className="picker-padding-top" style={{ height: '28px' }} />
         {extendedOptions.map((opt, idx) => {
           const isStandard = options.includes(opt); // 원래 5분 단위 눈금인지 확인
           const isActive = value === opt;
@@ -269,7 +270,7 @@ function ScrollPicker({ options, value, onChange, unit }) {
             </div>
           );
         })}
-        <div className="picker-padding-bottom" style={{ height: '30px' }} />
+        <div className="picker-padding-bottom" style={{ height: '28px' }} />
       </div>
       <div className="picker-selection-overlay" />
     </div>
@@ -459,7 +460,7 @@ const AchievementHeatmap = ({ data }) => {
 };
 
 
-const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, userPoints, progress, userAvatar, currentUser, setShowSuccessRoom, setShowMyPage, setShowDailyChart, handleInstallClick, showInstallBtn, setIsAuthenticated, setCurrentUser }) => {
+const ScheduleOnlyCalendar = ({ todos, completions, startEdit, closeCalendar, toggleTodo, userPoints, progress, userAvatar, currentUser, setShowSuccessRoom, setShowMyPage, setShowDailyChart, handleInstallClick, showInstallBtn, setIsAuthenticated, setCurrentUser }) => {
   const [baseDate, setBaseDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('week');
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'completed' | 'incomplete' 
@@ -498,6 +499,16 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
     setBaseDate(new Date());
     setViewMode('week');
   };
+
+  useEffect(() => {
+    // [남개발 부장] 일정 캘린더 진입 시 오늘 날짜로 자동 스크롤!
+    setTimeout(() => {
+      const todayEl = document.getElementById('calendar-today');
+      if (todayEl) {
+        todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  }, []);
 
   const getDisplayDays = () => {
     if (viewMode === 'week') {
@@ -639,13 +650,13 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="nav-btn-premium active" style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', color: '#fff', fontWeight: '900', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-            <span style={{ fontSize: '1rem' }}>📅</span> 일정
+          <button className="nav-btn-premium active" onClick={closeCalendar} style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', color: '#fff', fontWeight: '900', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+            <span style={{ fontSize: '1rem' }}>📝</span> 일정등록
           </button>
-          <button className="nav-btn-premium" onClick={() => setShowSuccessRoom(true)} style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+          <button className="nav-btn-premium" onClick={() => { setShowMyPage(false); setShowSuccessRoom(true); }} style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
             <span style={{ fontSize: '1rem' }}>🏛️</span> 성공
           </button>
-          <button className="nav-btn-premium" onClick={() => setShowMyPage(true)} style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+          <button className="nav-btn-premium" onClick={() => { setShowSuccessRoom(false); setShowMyPage(true); }} style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
             <span style={{ fontSize: '1rem' }}>👤</span> MY
           </button>
         </div>
@@ -698,6 +709,7 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
             return (
               <div
                 key={dateStr}
+                id={isToday ? 'calendar-today' : undefined}
                 className="day-card-premium"
                 style={{
                   borderRadius: '18px',
@@ -731,6 +743,7 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
                       <div
                         key={todo.id}
                         className="todo-item-premium"
+                        onClick={() => { closeCalendar(); startEdit(todo); }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '10px',
                           padding: '10px 14px', borderRadius: '12px',
@@ -744,22 +757,24 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
                         onMouseLeave={e => { e.currentTarget.style.background = todo.completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255,255,255,0.02)'; e.currentTarget.style.transform = 'translateX(0)'; }}
                       >
                         <div
-                          onClick={(e) => { e.stopPropagation(); toggleTodo(todo); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleTodo(todo, dateStr);
+                          }}
                           style={{
                             width: '20px', height: '20px', minWidth: '20px',
                             borderRadius: '5px',
-                            border: `2px solid ${todo.completed ? '#22c55e' : color}`,
-                            background: todo.completed ? '#22c55e' : 'transparent',
+                            border: `2px solid ${completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : color}`,
+                            background: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : 'transparent',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             cursor: 'pointer', transition: 'all 0.2s',
                             flexShrink: 0
                           }}
                         >
-                          {todo.completed && <span style={{ color: '#fff', fontSize: '0.75rem', fontWeight: '900' }}>✓</span>}
+                          {completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) && <span style={{ color: '#fff', fontSize: '0.75rem', fontWeight: '900' }}>✓</span>}
                         </div>
-                        <span style={{ fontSize: '0.75rem', color: todo.completed ? '#64748b' : color, fontWeight: '900', minWidth: '60px' }}>{formatTime(todo.time)}</span>
-                        <span style={{ fontSize: '0.9rem', color: todo.completed ? '#64748b' : '#f1f5f9', flex: 1, fontWeight: '600', textDecoration: todo.completed ? 'line-through' : 'none' }}>{todo.text}</span>
-                        <span onClick={(e) => { e.stopPropagation(); closeCalendar(); startEdit(todo); }} style={{ fontSize: '0.8rem', opacity: 0.5, cursor: 'pointer', padding: '2px' }}>✏️</span>
+                        <span style={{ fontSize: '0.75rem', color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : color, fontWeight: '900', minWidth: '60px' }}>{formatTime(todo.time)}</span>
+                        <span style={{ fontSize: '0.9rem', color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : '#f1f5f9', flex: 1, fontWeight: '600', textDecoration: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? 'line-through' : 'none' }}>{todo.text}</span>
                       </div>
                     ))}
                   </div>
@@ -846,8 +861,8 @@ function App() {
   const [ampm, setAmpm] = useState(defaultT.ampm)
   const [hour, setHour] = useState(defaultT.hour)
   const [minute, setMinute] = useState(defaultT.minute)
-  const [selectedDays, setSelectedDays] = useState(['월', '화', '수', '목', '금']) // 기본 평일 선택
-  const [excludeHolidays, setExcludeHolidays] = useState(true) // 기본 체크됨
+  const [selectedDays, setSelectedDays] = useState([['일', '월', '화', '수', '목', '금', '토'][new Date().getDay()]]) // 당일 요일 기본 선택
+  const [excludeHolidays, setExcludeHolidays] = useState(false) // 당일 요일 중심이므로 기본 해제
   const [scheduleMode, setScheduleMode] = useState('schedule') // 'routine' | 'schedule'
   const [listFilter, setListFilter] = useState('schedule') // 'all' | 'routine' | 'schedule'
   const [isWeeklyView, setIsWeeklyView] = useState(false) // [NAM] Weekly Board Mode
@@ -855,6 +870,7 @@ function App() {
   const [prevIsSchedule, setPrevIsSchedule] = useState(null) // 이전 입력값의 일정 여부 추적용
   const [allCandidates, setAllCandidates] = useState([]) // 주간 관리자용 전체 후보 리스트
   const [weeklySelectedIds, setWeeklySelectedIds] = useState(new Set()) // 주간 관리자 선택 IDs
+  const [completions, setCompletions] = useState([]) // [남개발 팀장] 날짜별 완료 기록 저장소 [{todo_id, date}]
 
   // [남개발 부장] 기간 선택 캘린더 엔진용 센서 장착!
   const [showCalendar, setShowCalendar] = useState(false); // 달력 노출 여부
@@ -981,6 +997,10 @@ function App() {
   const [signUpName, setSignUpName] = useState('');
   const [signUpConfirmPw, setSignUpConfirmPw] = useState('');
   const [backendUrlInput, setBackendUrlInput] = useState(localStorage.getItem('backendUrl') || '');
+
+  const [alarmFilter, setAlarmFilter] = useState(() => localStorage.getItem('alarmFilter') || 'all');
+
+  useEffect(() => { localStorage.setItem('alarmFilter', alarmFilter); }, [alarmFilter]);
 
   const [useVoiceAlarm, setUseVoiceAlarm] = useState(() => {
     try {
@@ -1223,6 +1243,13 @@ function App() {
     try {
       const res = await fetch(`${API_URL}?username=${sanitizedUser}`);
       const data = await res.json();
+
+      // [남개발 팀장] 날짜별 완료 기록도 함께 호출
+      const compRes = await fetch(`${API_URL_COMPLETIONS}?username=${sanitizedUser}`);
+      if (compRes.ok) {
+        const compData = await compRes.json();
+        setCompletions(compData);
+      }
 
       // 현재 작업 중인(togglingIdsRef) 항목은 서버 데이터로 덮어쓰지 않고 로컬 상태 유지
       setTodos(prev => {
@@ -1590,9 +1617,14 @@ function App() {
           // 주말/공휴일 제외 설정보다 사용자가 선택한 요일이 우선순위가 높습니다.
           // (일요일 일정을 목록에 표시했으므로 알람도 울리게 처리)
           if (notifiedIdsRef.current.has(todo.id)) {
-            // locally already notified
             return;
           }
+
+          // alarmFilter 적용
+          const filter = localStorage.getItem('alarmFilter') || 'all';
+          if (filter === 'off') return;
+          if (filter === 'schedule' && todo.scheduleMode !== 'schedule') return;
+          if (filter === 'routine' && todo.scheduleMode !== 'routine') return;
 
           console.log(`[ALARM_TRIGGER] Triggering for: ${todo.text} (ID: ${todo.id})`);
           let affirmationText = '';
@@ -1978,37 +2010,60 @@ function App() {
     } catch (e) { console.error("Global dismiss failed", e); }
   };
 
-  const toggleTodo = async (todo) => {
-    // [남개발 부장] 중복 클릭 방지 락은 유지하되, 화면에 "로딩" 표시를 하지 않아 속도감을 높임
+  const toggleTodo = async (todo, targetDate) => {
+    // [남개발 부장] 중복 클릭 방지 락
     const todoIdStr = String(todo.id);
     if (togglingIdsRef.current.has(todoIdStr)) return;
 
-    // [남개발 부장] 즉각적인 반응을 위해 화면 상태부터 업데이트 (Optimistic UI)
-    const newStatus = !todo.completed;
-    setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: newStatus } : t));
+    // [남개발 팀장] 날짜가 없으면 오늘 날짜를 기본값으로 사용
+    const dateStr = targetDate || new Date().toISOString().split('T')[0];
 
-    // 내부적으로만 락을 검 (UI 갱신 없이)
+    // [남개발 부장] 미래 날짜 성공 처리 방지 로직 (요청 사항)
+    const todayLimit = new Date().toISOString().split('T')[0];
+    if (dateStr > todayLimit) {
+      alert("미래의 일정은 미리 성공 처리할 수 없습니다. 해당 날짜에 완료해주세요! 😊");
+      return;
+    }
+
+    // [남개발 부장] 즉각적인 반응을 위해 화면 상태부터 업데이트 (Optimistic UI)
+    // 1. completions 상태 업데이트
+    const isAlreadyDone = completions.some(c => String(c.todo_id) === todoIdStr && c.date === dateStr);
+    if (isAlreadyDone) {
+      setCompletions(prev => prev.filter(c => !(String(c.todo_id) === todoIdStr && c.date === dateStr)));
+    } else {
+      setCompletions(prev => [...prev, { todo_id: todo.id, date: dateStr }]);
+    }
+
+    // 2. 하위 호환성을 위해 todos의 completed 상태도 업데이트 (오늘 날짜인 경우)
+    if (dateStr === todayLimit) {
+      setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: !isAlreadyDone } : t));
+    }
+
     togglingIdsRef.current.add(todoIdStr);
-    const today = new Date().toLocaleDateString();
 
     try {
-      const response = await fetch(`${API_URL}/${todo.id}`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_URL_COMPLETIONS}/toggle`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: newStatus, lastNotifiedDate: today })
+        body: JSON.stringify({ todo_id: todo.id, date: dateStr, username: currentUser.split('=')[0] })
       });
 
       if (!response.ok) {
-        // 서버 저장 실패 시에만 화면 상태 롤백
-        setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: !newStatus } : t));
-        console.error("Toggle failed on server");
+        const errorData = await response.json();
+        alert(errorData.error || "변경 사항 저장 실패");
+        // 롤백
+        if (isAlreadyDone) {
+          setCompletions(prev => [...prev, { todo_id: todo.id, date: dateStr }]);
+        } else {
+          setCompletions(prev => prev.filter(c => !(String(c.todo_id) === todoIdStr && c.date === dateStr)));
+        }
+        if (dateStr === todayLimit) {
+          setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: isAlreadyDone } : t));
+        }
       }
-      // [남개발 부장] 전체 fetch는 조용히 수행 (화면을 다시 그리지 않아도 됨)
     } catch (e) {
-      setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: !newStatus } : t));
-      console.error("Fetch error during toggle:", e);
+      console.error("Toggle error:", e);
     } finally {
-      // 락(Lock) 해제
       togglingIdsRef.current.delete(todoIdStr);
     }
   };
@@ -2567,6 +2622,7 @@ function App() {
           <div style={{ width: '100%', maxWidth: '480px', flex: 1 }}>
             <ScheduleOnlyCalendar 
               todos={todos} 
+              completions={completions}
               startEdit={startEdit} 
               closeCalendar={() => setShowScheduleCalendar(false)} 
               toggleTodo={toggleTodo}
@@ -3098,6 +3154,32 @@ function App() {
               )}
               {myPageTab === 'alarm' && (
                 <div className="mypage-section">
+                  <p className="mypage-label">🔔 알람 받을 일정 유형</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '0 20px', marginBottom: '20px' }}>
+                    {[
+                      { key: 'all', icon: '📅', label: '일정+루틴', sub: '모두 알람' },
+                      { key: 'schedule', icon: '🗓️', label: '일정만', sub: '스케줄 알람' },
+                      { key: 'routine', icon: '🔁', label: '루틴만', sub: '루틴 알람' },
+                      { key: 'off', icon: '🔕', label: '알람 끔', sub: '모든 알람 끔' },
+                    ].map(({ key, icon, label, sub }) => (
+                      <div
+                        key={key}
+                        onClick={() => setAlarmFilter(key)}
+                        style={{
+                          padding: '14px 12px',
+                          borderRadius: '14px',
+                          background: alarmFilter === key ? (key === 'off' ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.2)') : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${alarmFilter === key ? (key === 'off' ? 'rgba(239,68,68,0.5)' : 'rgba(99,102,241,0.5)') : 'rgba(255,255,255,0.08)'}`,
+                          cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
+                          boxShadow: alarmFilter === key ? '0 4px 15px rgba(0,0,0,0.2)' : 'none'
+                        }}
+                      >
+                        <div style={{ fontSize: '1.6rem', marginBottom: '4px' }}>{icon}</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: '900', color: alarmFilter === key ? '#fff' : '#94a3b8' }}>{label}</div>
+                        <div style={{ fontSize: '0.7rem', color: alarmFilter === key ? 'rgba(255,255,255,0.7)' : '#475569', marginTop: '2px' }}>{sub}</div>
+                      </div>
+                    ))}
+                  </div>
                   <p className="mypage-label">🔊 알람 소리 선택</p>
                   <div className="alarm-sound-grid" style={{ padding: '0 20px' }}>
                     {ALARM_SOUNDS.map(s => (
@@ -3358,9 +3440,9 @@ function App() {
             </div>
 
             <div className="header-action-grid">
-              <button className="nav-btn calendar" onClick={() => setShowScheduleCalendar(true)}>📅 일정 캘린더</button>
-              <button className="nav-btn room" onClick={() => setShowSuccessRoom(true)}>🏛️ 성공의 방</button>
-              <button className="nav-btn my" onClick={() => setShowMyPage(true)}>👤 MY</button>
+              <button className="nav-btn calendar" onClick={() => { setShowSuccessRoom(false); setShowMyPage(false); setShowScheduleCalendar(true); }}>📅 일정 캘린더</button>
+              <button className="nav-btn room" onClick={() => { setShowScheduleCalendar(false); setShowMyPage(false); setShowSuccessRoom(true); }}>🏛️ 성공의 방</button>
+              <button className="nav-btn my" onClick={() => { setShowScheduleCalendar(false); setShowSuccessRoom(false); setShowMyPage(true); }}>👤 MY</button>
               {showInstallBtn && (
                 <button className="nav-btn install" onClick={handleInstallClick} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 'bold' }}>📲 앱 설치</button>
               )}
@@ -3560,7 +3642,12 @@ function App() {
                         // [남개발 팀장] 대표님 지시: 항목 클릭 시 토글 대신 바로 수정 모드 진입!
                         startEdit(todo);
                       }} style={{ cursor: 'pointer' }}>
-                        <input type="checkbox" checked={todo.completed} onChange={() => toggleTodo(todo)} className="todo-checkbox" />
+                        <input
+                          type="checkbox"
+                          checked={completions.some(c => String(c.todo_id) === String(todo.id) && c.date === new Date().toISOString().split('T')[0])}
+                          onChange={() => toggleTodo(todo)}
+                          className="todo-checkbox"
+                        />
                         <div className="content-group">
                           <div className="todo-meta">
                             {todo.scheduleMode !== 'memo' && todo.time && (
