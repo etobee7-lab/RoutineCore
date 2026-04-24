@@ -2638,18 +2638,34 @@ function App() {
               setIsAuthenticated={setIsAuthenticated}
               setCurrentUser={setCurrentUser}
             />
-            {/* 하단 닫기 버튼 */}
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0 40px' }}>
-              <button 
+            {/* 하단 sticky 닫기 버튼 */}
+            <div style={{
+              position: 'sticky', bottom: 0,
+              background: 'linear-gradient(to top, rgba(15,23,42,1) 60%, rgba(15,23,42,0))',
+              padding: '24px 20px 20px',
+              display: 'flex', justifyContent: 'center',
+              pointerEvents: 'none'
+            }}>
+              <button
                 onClick={() => setShowScheduleCalendar(false)}
                 style={{
-                  background: 'rgba(239, 68, 68, 0.95)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
-                  padding: '12px 30px', borderRadius: '30px', fontWeight: '900', fontSize: '1rem',
-                  boxShadow: '0 10px 20px rgba(239, 68, 68, 0.3)',
-                  display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'
+                  pointerEvents: 'auto',
+                  background: 'linear-gradient(135deg, rgba(239,68,68,0.9), rgba(220,38,38,0.95))',
+                  color: '#fff',
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  padding: '13px 28px',
+                  borderRadius: '50px',
+                  fontWeight: '900',
+                  fontSize: '0.95rem',
+                  boxShadow: '0 8px 24px rgba(239,68,68,0.4), 0 2px 8px rgba(0,0,0,0.3)',
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(8px)',
+                  letterSpacing: '-0.3px',
+                  transition: 'all 0.2s'
                 }}
               >
-                닫고 대시보드로 돌아가기 ✕
+                ← 대시보드로 돌아가기
               </button>
             </div>
           </div>
