@@ -556,7 +556,8 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
     <div className="calendar-mobile-optimized" style={{ 
       display: 'flex', flexDirection: 'column', gap: '0', 
       background: 'linear-gradient(to bottom, #0f172a, #1e293b)', 
-      minHeight: '100vh', paddingBottom: '120px' 
+      minHeight: '100vh', paddingBottom: '120px',
+      position: 'relative', zIndex: 1
     }}>
       <style>{`
         @media (max-width: 600px) {
@@ -589,7 +590,7 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
         padding: '12px 15px 10px 15px', borderRadius: '0 0 20px 20px',
         borderBottom: '1px solid rgba(255,255,255,0.08)',
         boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-        position: 'sticky', top: 0, zIndex: 1000, backdropFilter: 'blur(20px)'
+        position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(20px)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <div className="brand-logo" onClick={() => setShowDailyChart(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -2559,42 +2560,43 @@ function App() {
 
       {showScheduleCalendar && (
         <div style={{
-          position: 'fixed', top: 0, left: '50%', transform: 'translateX(-50%)',
-          width: '100%', maxWidth: '480px', height: '100vh',
-          background: '#0f172a', zIndex: 2000, overflowY: 'auto',
-          boxShadow: '0 0 60px rgba(0,0,0,0.8)'
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: '#0f172a', zIndex: 9999, overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', alignItems: 'center'
         }}>
-          <ScheduleOnlyCalendar 
-            todos={todos} 
-            startEdit={startEdit} 
-            closeCalendar={() => setShowScheduleCalendar(false)} 
-            toggleTodo={toggleTodo}
-            userPoints={userPoints}
-            progress={progress}
-            userAvatar={userAvatar}
-            currentUser={currentUser}
-            setShowSuccessRoom={setShowSuccessRoom}
-            setShowMyPage={setShowMyPage}
-            setShowDailyChart={setShowDailyChart}
-            handleInstallClick={handleInstallClick}
-            showInstallBtn={showInstallBtn}
-            setIsAuthenticated={setIsAuthenticated}
-            setCurrentUser={setCurrentUser}
-          />
-          
-          {/* 하단 플로팅 닫기 버튼 */}
-          <button 
-            onClick={() => setShowScheduleCalendar(false)}
-            style={{
-              position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)',
-              background: 'rgba(239, 68, 68, 0.95)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
-              padding: '12px 30px', borderRadius: '30px', fontWeight: '900', fontSize: '1rem',
-              boxShadow: '0 10px 20px rgba(239, 68, 68, 0.3)', zIndex: 3000,
-              display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'
-            }}
-          >
-            닫고 대시보드로 돌아가기 ✕
-          </button>
+          <div style={{ width: '100%', maxWidth: '480px', flex: 1 }}>
+            <ScheduleOnlyCalendar 
+              todos={todos} 
+              startEdit={startEdit} 
+              closeCalendar={() => setShowScheduleCalendar(false)} 
+              toggleTodo={toggleTodo}
+              userPoints={userPoints}
+              progress={progress}
+              userAvatar={userAvatar}
+              currentUser={currentUser}
+              setShowSuccessRoom={setShowSuccessRoom}
+              setShowMyPage={setShowMyPage}
+              setShowDailyChart={setShowDailyChart}
+              handleInstallClick={handleInstallClick}
+              showInstallBtn={showInstallBtn}
+              setIsAuthenticated={setIsAuthenticated}
+              setCurrentUser={setCurrentUser}
+            />
+            {/* 하단 닫기 버튼 */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0 40px' }}>
+              <button 
+                onClick={() => setShowScheduleCalendar(false)}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.95)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
+                  padding: '12px 30px', borderRadius: '30px', fontWeight: '900', fontSize: '1rem',
+                  boxShadow: '0 10px 20px rgba(239, 68, 68, 0.3)',
+                  display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'
+                }}
+              >
+                닫고 대시보드로 돌아가기 ✕
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
