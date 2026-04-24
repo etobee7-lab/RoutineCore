@@ -637,6 +637,13 @@ const ScheduleOnlyCalendar = ({ todos, completions, startEdit, closeCalendar, to
               <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: '700' }}>{currentUser}</span>
             </div>
 
+            <button onClick={closeCalendar} style={{
+              background: 'linear-gradient(135deg, rgba(239,68,68,0.85), rgba(220,38,38,0.9))',
+              color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
+              padding: '7px 14px', borderRadius: '20px', fontSize: '0.82rem', fontWeight: '900',
+              boxShadow: '0 4px 12px rgba(239,68,68,0.35)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '5px', letterSpacing: '-0.2px'
+            }}>← 나가기</button>
             <button className="exit-btn" onClick={() => {
               setIsAuthenticated(false);
               setCurrentUser('');
@@ -2638,36 +2645,6 @@ function App() {
               setIsAuthenticated={setIsAuthenticated}
               setCurrentUser={setCurrentUser}
             />
-            {/* 하단 sticky 닫기 버튼 */}
-            <div style={{
-              position: 'sticky', bottom: 0,
-              background: 'linear-gradient(to top, rgba(15,23,42,1) 60%, rgba(15,23,42,0))',
-              padding: '24px 20px 20px',
-              display: 'flex', justifyContent: 'center',
-              pointerEvents: 'none'
-            }}>
-              <button
-                onClick={() => setShowScheduleCalendar(false)}
-                style={{
-                  pointerEvents: 'auto',
-                  background: 'linear-gradient(135deg, rgba(239,68,68,0.9), rgba(220,38,38,0.95))',
-                  color: '#fff',
-                  border: '1px solid rgba(255,255,255,0.25)',
-                  padding: '13px 28px',
-                  borderRadius: '50px',
-                  fontWeight: '900',
-                  fontSize: '0.95rem',
-                  boxShadow: '0 8px 24px rgba(239,68,68,0.4), 0 2px 8px rgba(0,0,0,0.3)',
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  cursor: 'pointer',
-                  backdropFilter: 'blur(8px)',
-                  letterSpacing: '-0.3px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                ← 대시보드로 돌아가기
-              </button>
-            </div>
           </div>
         </div>
       )}
