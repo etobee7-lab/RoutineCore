@@ -2040,7 +2040,8 @@ function App() {
     if (!alert || !alert.todo) return;
     const todoId = alert.todo.id;
     const todoIdStr = String(todoId);
-    const today = new Date().toLocaleDateString();
+    const todayDate = new Date();
+    const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
 
     console.log(`[ALARM] Confirming todo: ${todoIdStr} ("${alert.todo.text}")`);
 
@@ -2055,10 +2056,10 @@ function App() {
       const resp = await fetch(`${API_URL}/${todoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: true, isFailed: false, lastNotifiedDate: today })
+        body: JSON.stringify({ completed: true, isFailed: false, lastNotifiedDate: today, scheduleMode: alert.todo.scheduleMode })
       });
 
-      if (!resp.ok) throw new Error("Server update failed");
+      if (!resp.ok) { const errText = await resp.text(); throw new Error(`Server update failed: ${errText}`); }
 
       // 3초 후 락 해제 및 최신화
       setTimeout(() => {
@@ -2080,7 +2081,8 @@ function App() {
     if (!alert || !alert.todo) return;
     const todoId = alert.todo.id;
     const todoIdStr = String(todoId);
-    const today = new Date().toLocaleDateString();
+    const todayDate = new Date();
+    const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
 
     console.log(`[ALARM] Failing todo: ${todoIdStr} ("${alert.todo.text}")`);
 
@@ -2095,10 +2097,10 @@ function App() {
       const resp = await fetch(`${API_URL}/${todoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: false, isFailed: true, lastNotifiedDate: today })
+        body: JSON.stringify({ completed: false, isFailed: true, lastNotifiedDate: today, scheduleMode: alert.todo.scheduleMode })
       });
 
-      if (!resp.ok) throw new Error("Server update failed");
+      if (!resp.ok) { const errText = await resp.text(); throw new Error(`Server update failed: ${errText}`); }
 
       speakText(`${alert.todo.text} 일정이 쉬어감으로 변경되었습니다.`);
 
