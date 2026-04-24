@@ -586,43 +586,43 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
       
       <div className="premium-header-sticky" style={{
         background: 'rgba(15, 23, 42, 0.9)',
-        padding: '25px 25px 20px 25px', borderRadius: '0 0 30px 30px',
+        padding: '12px 15px 10px 15px', borderRadius: '0 0 20px 20px',
         borderBottom: '1px solid rgba(255,255,255,0.08)',
         boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
         position: 'sticky', top: 0, zIndex: 1000, backdropFilter: 'blur(20px)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '25px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <div className="brand-logo" onClick={() => setShowDailyChart(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-            <img src="/logo512.png" alt="Logo" style={{ width: '42px', height: '42px', filter: 'drop-shadow(0 0 10px rgba(96, 165, 250, 0.4))' }} />
-            <div style={{ marginLeft: '12px' }}>
-              <h1 style={{ fontSize: '1.4rem', margin: 0, color: '#fff', fontWeight: '900', letterSpacing: '-0.8px', lineHeight: 1.1 }}>Routine</h1>
-              <span style={{ fontSize: '1.1rem', color: '#60a5fa', fontWeight: '800' }}>Core</span>
+            <img src="/logo512.png" alt="Logo" style={{ width: '30px', height: '30px', filter: 'drop-shadow(0 0 8px rgba(96, 165, 250, 0.4))' }} />
+            <div style={{ marginLeft: '8px' }}>
+              <h1 style={{ fontSize: '1.05rem', margin: 0, color: '#fff', fontWeight: '900', letterSpacing: '-0.8px', lineHeight: 1.1 }}>Routine</h1>
+              <span style={{ fontSize: '0.85rem', color: '#60a5fa', fontWeight: '800' }}>Core</span>
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div className="points-pill" style={{ 
-              display: 'flex', alignItems: 'center', gap: '12px', 
-              padding: '8px 15px', background: 'rgba(255,255,255,0.04)', 
-              borderRadius: '18px', border: '1px solid rgba(255,255,255,0.08)' 
+              display: 'flex', alignItems: 'center', gap: '8px', 
+              padding: '5px 10px', background: 'rgba(255,255,255,0.04)', 
+              borderRadius: '14px', border: '1px solid rgba(255,255,255,0.08)' 
             }}>
-              <span style={{ fontSize: '1.2rem', fontWeight: '900', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '5px' }}>💰 {userPoints.toLocaleString()}</span>
-              <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }}></div>
-              <div className="progress-mini" style={{ width: '30px', height: '35px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', position: 'relative', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: '900', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px' }}>💰 {userPoints.toLocaleString()}</span>
+              <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }}></div>
+              <div className="progress-mini" style={{ width: '22px', height: '26px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', position: 'relative', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <div style={{ width: '100%', height: `${progress}%`, background: 'linear-gradient(to top, #3b82f6, #60a5fa)', position: 'absolute', bottom: 0, transition: 'height 0.8s' }}></div>
               </div>
             </div>
 
             <div className="user-profile-pill" style={{ 
-              display: 'flex', alignItems: 'center', gap: '8px', 
-              padding: '6px 12px 6px 6px', background: 'rgba(96, 165, 250, 0.1)', 
-              borderRadius: '30px', border: '1px solid rgba(96, 165, 250, 0.2)',
+              display: 'flex', alignItems: 'center', gap: '6px', 
+              padding: '4px 8px 4px 4px', background: 'rgba(96, 165, 250, 0.1)', 
+              borderRadius: '24px', border: '1px solid rgba(96, 165, 250, 0.2)',
               cursor: 'pointer'
             }} onClick={() => setShowMyPage(true)}>
-              <div style={{ width: '38px', height: '38px', borderRadius: '50%', border: '2px solid #60a5fa', padding: '1px', background: 'rgba(96, 165, 250, 0.1)', overflow: 'hidden' }}>
+              <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid #60a5fa', padding: '1px', background: 'rgba(96, 165, 250, 0.1)', overflow: 'hidden' }}>
                 <RenderAvatar avatar={userAvatar} />
               </div>
-              <span style={{ fontSize: '1rem', color: '#fff', fontWeight: '700' }}>{currentUser}</span>
+              <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: '700' }}>{currentUser}</span>
             </div>
 
             <button className="exit-btn" onClick={() => {
@@ -632,61 +632,61 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
               localStorage.removeItem('routine_user');
             }} style={{
               background: 'rgba(239, 68, 68, 0.12)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.25)',
-              padding: '12px 15px', borderRadius: '20px', fontSize: '1rem', fontWeight: '800'
+              padding: '7px 10px', borderRadius: '14px', fontSize: '0.85rem', fontWeight: '800'
             }}>🚪</button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="nav-btn-premium active" style={{ flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', color: '#fff', fontWeight: '900', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.2rem' }}>📅</span> 일정
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="nav-btn-premium active" style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', color: '#fff', fontWeight: '900', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+            <span style={{ fontSize: '1rem' }}>📅</span> 일정
           </button>
-          <button className="nav-btn-premium" onClick={() => setShowSuccessRoom(true)} style={{ flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.2rem' }}>🏛️</span> 성공
+          <button className="nav-btn-premium" onClick={() => setShowSuccessRoom(true)} style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+            <span style={{ fontSize: '1rem' }}>🏛️</span> 성공
           </button>
-          <button className="nav-btn-premium" onClick={() => setShowMyPage(true)} style={{ flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.2rem' }}>👤</span> MY
+          <button className="nav-btn-premium" onClick={() => setShowMyPage(true)} style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+            <span style={{ fontSize: '1rem' }}>👤</span> MY
           </button>
         </div>
       </div>
 
-      <div style={{ padding: '25px 20px' }}>
+      <div style={{ padding: '15px 14px' }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '15px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: '22px',
-          border: '1px solid rgba(255,255,255,0.06)', marginBottom: '20px'
+          padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px',
+          border: '1px solid rgba(255,255,255,0.06)', marginBottom: '12px'
         }}>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="nav-arrow" style={{ width: '42px', height: '42px', borderRadius: '14px' }} onClick={() => viewMode === 'week' ? moveWeek(-1) : moveMonth(-1)}>◀</button>
-            <button className="nav-today-btn" style={{ padding: '0 18px', height: '42px', borderRadius: '14px', fontSize: '0.9rem', fontWeight: '800' }} onClick={resetToToday}>오늘</button>
-            <button className="nav-arrow" style={{ width: '42px', height: '42px', borderRadius: '14px' }} onClick={() => viewMode === 'week' ? moveWeek(1) : moveMonth(1)}>▶</button>
+            <button className="nav-arrow" style={{ width: '34px', height: '34px', borderRadius: '10px' }} onClick={() => viewMode === 'week' ? moveWeek(-1) : moveMonth(-1)}>◀</button>
+            <button className="nav-today-btn" style={{ padding: '0 12px', height: '34px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }} onClick={resetToToday}>오늘</button>
+            <button className="nav-arrow" style={{ width: '34px', height: '34px', borderRadius: '10px' }} onClick={() => viewMode === 'week' ? moveWeek(1) : moveMonth(1)}>▶</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button onClick={() => setFilterMode('all')} style={{
-              padding: '8px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800',
+              padding: '5px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800',
               background: filterMode === 'all' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255,255,255,0.05)',
               border: filterMode === 'all' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid rgba(255,255,255,0.1)',
               color: filterMode === 'all' ? '#fff' : '#94a3b8', cursor: 'pointer'
             }}>전체</button>
             <button onClick={() => setFilterMode('incomplete')} style={{
-              padding: '8px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800',
+              padding: '5px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800',
               background: filterMode === 'incomplete' ? 'rgba(251, 191, 36, 0.3)' : 'rgba(255,255,255,0.05)',
               border: filterMode === 'incomplete' ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(255,255,255,0.1)',
               color: filterMode === 'incomplete' ? '#fff' : '#94a3b8', cursor: 'pointer'
             }}>미완료</button>
             <button onClick={() => setFilterMode('completed')} style={{
-              padding: '8px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800',
+              padding: '5px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800',
               background: filterMode === 'completed' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255,255,255,0.05)',
               border: filterMode === 'completed' ? '1px solid rgba(34, 197, 94, 0.5)' : '1px solid rgba(255,255,255,0.1)',
               color: filterMode === 'completed' ? '#fff' : '#94a3b8', cursor: 'pointer'
             }}>완료</button>
           </div>
         </div>
-        <div style={{ marginBottom: '15px', textAlign: 'center' }}>
-          <span className="header-title-mobile" style={{ fontWeight: '900', fontSize: '1.1rem', color: '#fff', letterSpacing: '-0.5px' }}>{currentHeader}</span>
+        <div style={{ marginBottom: '10px', textAlign: 'center' }}>
+          <span className="header-title-mobile" style={{ fontWeight: '900', fontSize: '0.95rem', color: '#fff', letterSpacing: '-0.5px' }}>{currentHeader}</span>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {displayDays.map(({ dayIndex, date, dateStr }) => {
             const dayTodos = getScheduleTodosByDay(dayIndex, dateStr);
             const isToday = dateStr === todayStr;
@@ -699,7 +699,7 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
                 key={dateStr}
                 className="day-card-premium"
                 style={{
-                  borderRadius: '28px',
+                  borderRadius: '18px',
                   background: isToday ? 'rgba(99, 102, 241, 0.05)' : 'rgba(255,255,255,0.015)',
                   border: isToday ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(255,255,255,0.05)',
                   overflow: 'hidden',
@@ -707,32 +707,32 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
                 }}
               >
                 <div className="day-header-premium" style={{
-                  display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 22px',
+                  display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px',
                   background: isToday ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.03)',
                   borderBottom: dayTodos.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none'
                 }}>
-                  <span style={{ width: '40px', height: '40px', borderRadius: '14px', background: isToday ? color : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '900', color: isToday ? '#fff' : color, flexShrink: 0 }}>
+                  <span style={{ width: '30px', height: '30px', borderRadius: '10px', background: isToday ? color : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: '900', color: isToday ? '#fff' : color, flexShrink: 0 }}>
                     {dayNames[dayIndex]}
                   </span>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span className="date-text" style={{ color: isToday ? '#fff' : '#cbd5e1', fontSize: '1.05rem', fontWeight: '800' }}>
+                    <span className="date-text" style={{ color: isToday ? '#fff' : '#cbd5e1', fontSize: '0.9rem', fontWeight: '800' }}>
                       {month}월 {day}일
-                      {isToday && <span style={{ marginLeft: '12px', fontSize: '0.7rem', background: '#6366f1', color: '#fff', padding: '3px 12px', borderRadius: '25px', verticalAlign: 'middle', fontWeight: '900' }}>TODAY</span>}
+                      {isToday && <span style={{ marginLeft: '8px', fontSize: '0.65rem', background: '#6366f1', color: '#fff', padding: '2px 8px', borderRadius: '20px', verticalAlign: 'middle', fontWeight: '900' }}>TODAY</span>}
                     </span>
                   </div>
-                  <span style={{ marginLeft: 'auto', fontSize: '0.85rem', color: '#64748b', fontWeight: '700' }}>{dayTodos.length}개 일정</span>
+                  <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#64748b', fontWeight: '700' }}>{dayTodos.length}개</span>
                 </div>
 
                 {dayTodos.length > 0 && (
-                  <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
 
                     {dayTodos.map(todo => (
                       <div
                         key={todo.id}
                         className="todo-item-premium"
                         style={{
-                          display: 'flex', alignItems: 'center', gap: '15px',
-                          padding: '15px 20px', borderRadius: '18px',
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          padding: '10px 14px', borderRadius: '12px',
                           background: todo.completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255,255,255,0.02)',
                           borderLeft: `5px solid ${todo.completed ? '#22c55e' : color}`,
                           cursor: 'pointer', transition: 'all 0.2s',
@@ -745,8 +745,8 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
                         <div
                           onClick={(e) => { e.stopPropagation(); toggleTodo(todo); }}
                           style={{
-                            width: '24px', height: '24px', minWidth: '24px',
-                            borderRadius: '6px',
+                            width: '20px', height: '20px', minWidth: '20px',
+                            borderRadius: '5px',
                             border: `2px solid ${todo.completed ? '#22c55e' : color}`,
                             background: todo.completed ? '#22c55e' : 'transparent',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -754,11 +754,11 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, use
                             flexShrink: 0
                           }}
                         >
-                          {todo.completed && <span style={{ color: '#fff', fontSize: '0.9rem', fontWeight: '900' }}>✓</span>}
+                          {todo.completed && <span style={{ color: '#fff', fontSize: '0.75rem', fontWeight: '900' }}>✓</span>}
                         </div>
-                        <span style={{ fontSize: '0.85rem', color: todo.completed ? '#64748b' : color, fontWeight: '900', minWidth: '70px' }}>{formatTime(todo.time)}</span>
-                        <span style={{ fontSize: '1rem', color: todo.completed ? '#64748b' : '#f1f5f9', flex: 1, fontWeight: '600', textDecoration: todo.completed ? 'line-through' : 'none' }}>{todo.text}</span>
-                        <span onClick={(e) => { e.stopPropagation(); closeCalendar(); startEdit(todo); }} style={{ fontSize: '0.9rem', opacity: 0.5, cursor: 'pointer', padding: '4px' }}>✏️</span>
+                        <span style={{ fontSize: '0.75rem', color: todo.completed ? '#64748b' : color, fontWeight: '900', minWidth: '60px' }}>{formatTime(todo.time)}</span>
+                        <span style={{ fontSize: '0.9rem', color: todo.completed ? '#64748b' : '#f1f5f9', flex: 1, fontWeight: '600', textDecoration: todo.completed ? 'line-through' : 'none' }}>{todo.text}</span>
+                        <span onClick={(e) => { e.stopPropagation(); closeCalendar(); startEdit(todo); }} style={{ fontSize: '0.8rem', opacity: 0.5, cursor: 'pointer', padding: '2px' }}>✏️</span>
                       </div>
                     ))}
                   </div>
