@@ -454,25 +454,15 @@ const AchievementHeatmap = ({ data }) => {
           );
         })}
       </div>
-      <div className="heatmap-footer">
-        <span className="legend-text">Less</span>
-        <div className="legend-cells">
-          <div className="heatmap-cell level-0"></div>
-          <div className="heatmap-cell level-1"></div>
-          <div className="heatmap-cell level-2"></div>
-          <div className="heatmap-cell level-3"></div>
-          <div className="heatmap-cell level-4"></div>
-        </div>
-        <span className="legend-text">More</span>
-      </div>
     </div>
   );
 };
 
 
-const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
-  const [baseDate, setBaseDate] = useState(new Date()); // [남개발 팀장] 네비게이션의 기준 날짜
-  const [viewMode, setViewMode] = useState('week'); // 'week' | 'month'
+const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar, toggleTodo, userPoints, progress, userAvatar, currentUser, setShowSuccessRoom, setShowMyPage, setShowDailyChart, handleInstallClick, showInstallBtn, setIsAuthenticated, setCurrentUser }) => {
+  const [baseDate, setBaseDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState('week');
+  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'completed' | 'incomplete' 
 
   const dayNameToIndex = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
   const dayColors = {
@@ -492,7 +482,6 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
   today.setHours(0,0,0,0);
   const todayStr = toLocalDateStr(today);
 
-  // 네비게이션 함수들
   const moveWeek = (offset) => {
     const next = new Date(baseDate);
     next.setDate(baseDate.getDate() + offset * 7);
@@ -510,7 +499,6 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
     setViewMode('week');
   };
 
-  // 주간/월간 날짜 배열 생성
   const getDisplayDays = () => {
     if (viewMode === 'week') {
       const d = new Date(baseDate);
@@ -522,7 +510,6 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
         return { dayIndex: target.getDay(), date: target, dateStr: toLocalDateStr(target) };
       });
     } else {
-      // 월간 뷰: 해당 월의 모든 날짜
       const year = baseDate.getFullYear();
       const month = baseDate.getMonth();
       const firstDay = new Date(year, month, 1);
@@ -543,12 +530,16 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
       if (todo.scheduleMode !== 'schedule') return false;
       if (todo.startDate && dateStr < todo.startDate) return false;
       if (todo.endDate && dateStr > todo.endDate) return false;
-
       if (todo.days && todo.days.trim() !== '') {
         const indices = todo.days.split(',').map(d => dayNameToIndex[d.trim()]).filter(i => i !== undefined);
         return indices.includes(dayIndex);
       }
-      return true; // 요일 미지정 시 매일 노출
+      return true;
+    }).filter(todo => {
+      if (filterMode === 'all') return true;
+      if (filterMode === 'completed') return todo.completed;
+      if (filterMode === 'incomplete') return !todo.completed;
+      return true;
     }).sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
   };
 
@@ -562,96 +553,220 @@ const ScheduleOnlyCalendar = ({ todos, startEdit, closeCalendar }) => {
     : `${baseDate.getFullYear()}년 ${baseDate.getMonth() + 1}월 전체`;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-      {/* 네비게이션 바 */}
-      <div className="calendar-nav-bar" style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px',
-        position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(10px)'
+    <div className="calendar-mobile-optimized" style={{ 
+      display: 'flex', flexDirection: 'column', gap: '0', 
+      background: 'linear-gradient(to bottom, #0f172a, #1e293b)', 
+      minHeight: '100vh', paddingBottom: '120px' 
+    }}>
+      <style>{`
+        @media (max-width: 600px) {
+          .premium-header-sticky { padding: 15px 15px 12px 15px !important; }
+          .brand-logo h1 { font-size: 1.1rem !important; }
+          .brand-logo span { font-size: 0.9rem !important; }
+          .brand-logo img { width: 34px !important; height: 34px !important; }
+          .points-pill { padding: 5px 10px !important; gap: 8px !important; border-radius: 14px !important; }
+          .points-pill span { font-size: 0.9rem !important; }
+          .points-pill .progress-mini { width: 25px !important; height: 30px !important; }
+          .user-profile-pill { padding: 4px 10px 4px 4px !important; border-radius: 20px !important; }
+          .user-profile-pill span { display: none !important; }
+          .user-profile-pill div { width: 32px !important; height: 32px !important; }
+          .nav-btn-premium { padding: 10px !important; font-size: 0.8rem !important; border-radius: 14px !important; }
+          .nav-btn-premium span { font-size: 1rem !important; }
+          .day-card-premium { border-radius: 20px !important; }
+          .day-header-premium { padding: 12px 15px !important; }
+          .day-header-premium .date-text { font-size: 0.95rem !important; }
+          .todo-item-premium { padding: 12px 15px !important; border-radius: 14px !important; }
+          .todo-item-premium span { font-size: 0.85rem !important; }
+          .exit-btn { padding: 8px 12px !important; font-size: 1rem !important; }
+          .nav-arrow, .nav-today-btn { height: 36px !important; width: 36px !important; font-size: 0.8rem !important; }
+          .nav-today-btn { width: auto !important; padding: 0 12px !important; }
+          .header-title-mobile { font-size: 0.95rem !important; }
+        }
+      `}</style>
+      
+      <div className="premium-header-sticky" style={{
+        background: 'rgba(15, 23, 42, 0.9)',
+        padding: '25px 25px 20px 25px', borderRadius: '0 0 30px 30px',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+        position: 'sticky', top: 0, zIndex: 1000, backdropFilter: 'blur(20px)'
       }}>
-        <div style={{ display: 'flex', gap: '5px' }}>
-          <button className="nav-arrow" onClick={() => viewMode === 'week' ? moveWeek(-1) : moveMonth(-1)}>◀</button>
-          <button className="nav-today-btn" onClick={resetToToday} style={{ fontSize: '0.7rem', padding: '4px 8px' }}>오늘</button>
-          <button className="nav-arrow" onClick={() => viewMode === 'week' ? moveWeek(1) : moveMonth(1)}>▶</button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '25px' }}>
+          <div className="brand-logo" onClick={() => setShowDailyChart(true)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <img src="/logo512.png" alt="Logo" style={{ width: '42px', height: '42px', filter: 'drop-shadow(0 0 10px rgba(96, 165, 250, 0.4))' }} />
+            <div style={{ marginLeft: '12px' }}>
+              <h1 style={{ fontSize: '1.4rem', margin: 0, color: '#fff', fontWeight: '900', letterSpacing: '-0.8px', lineHeight: 1.1 }}>Routine</h1>
+              <span style={{ fontSize: '1.1rem', color: '#60a5fa', fontWeight: '800' }}>Core</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="points-pill" style={{ 
+              display: 'flex', alignItems: 'center', gap: '12px', 
+              padding: '8px 15px', background: 'rgba(255,255,255,0.04)', 
+              borderRadius: '18px', border: '1px solid rgba(255,255,255,0.08)' 
+            }}>
+              <span style={{ fontSize: '1.2rem', fontWeight: '900', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '5px' }}>💰 {userPoints.toLocaleString()}</span>
+              <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }}></div>
+              <div className="progress-mini" style={{ width: '30px', height: '35px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', position: 'relative', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ width: '100%', height: `${progress}%`, background: 'linear-gradient(to top, #3b82f6, #60a5fa)', position: 'absolute', bottom: 0, transition: 'height 0.8s' }}></div>
+              </div>
+            </div>
+
+            <div className="user-profile-pill" style={{ 
+              display: 'flex', alignItems: 'center', gap: '8px', 
+              padding: '6px 12px 6px 6px', background: 'rgba(96, 165, 250, 0.1)', 
+              borderRadius: '30px', border: '1px solid rgba(96, 165, 250, 0.2)',
+              cursor: 'pointer'
+            }} onClick={() => setShowMyPage(true)}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '50%', border: '2px solid #60a5fa', padding: '1px', background: 'rgba(96, 165, 250, 0.1)', overflow: 'hidden' }}>
+                <RenderAvatar avatar={userAvatar} />
+              </div>
+              <span style={{ fontSize: '1rem', color: '#fff', fontWeight: '700' }}>{currentUser}</span>
+            </div>
+
+            <button className="exit-btn" onClick={() => {
+              setIsAuthenticated(false);
+              setCurrentUser('');
+              localStorage.removeItem('routine_auth');
+              localStorage.removeItem('routine_user');
+            }} style={{
+              background: 'rgba(239, 68, 68, 0.12)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.25)',
+              padding: '12px 15px', borderRadius: '20px', fontSize: '1rem', fontWeight: '800'
+            }}>🚪</button>
+          </div>
         </div>
-        <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#fff' }}>{currentHeader}</span>
-        <select 
-          value={viewMode} 
-          onChange={(e) => setViewMode(e.target.value)}
-          style={{ background: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: '6px', fontSize: '0.75rem', padding: '2px 5px' }}
-        >
-          <option value="week">주간</option>
-          <option value="month">월간</option>
-        </select>
+
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button className="nav-btn-premium active" style={{ flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', color: '#fff', fontWeight: '900', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>📅</span> 일정
+          </button>
+          <button className="nav-btn-premium" onClick={() => setShowSuccessRoom(true)} style={{ flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>🏛️</span> 성공
+          </button>
+          <button className="nav-btn-premium" onClick={() => setShowMyPage(true)} style={{ flex: 1, padding: '14px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>👤</span> MY
+          </button>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
-        {displayDays.map(({ dayIndex, date, dateStr }) => {
-          const dayTodos = getScheduleTodosByDay(dayIndex, dateStr);
-          const isToday = dateStr === todayStr;
-          const color = dayColors[dayIndex];
-          const month = date.getMonth() + 1;
-          const day = date.getDate();
+      <div style={{ padding: '25px 20px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '15px 20px', background: 'rgba(255,255,255,0.03)', borderRadius: '22px',
+          border: '1px solid rgba(255,255,255,0.06)', marginBottom: '20px'
+        }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="nav-arrow" style={{ width: '42px', height: '42px', borderRadius: '14px' }} onClick={() => viewMode === 'week' ? moveWeek(-1) : moveMonth(-1)}>◀</button>
+            <button className="nav-today-btn" style={{ padding: '0 18px', height: '42px', borderRadius: '14px', fontSize: '0.9rem', fontWeight: '800' }} onClick={resetToToday}>오늘</button>
+            <button className="nav-arrow" style={{ width: '42px', height: '42px', borderRadius: '14px' }} onClick={() => viewMode === 'week' ? moveWeek(1) : moveMonth(1)}>▶</button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button onClick={() => setFilterMode('all')} style={{
+              padding: '8px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800',
+              background: filterMode === 'all' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255,255,255,0.05)',
+              border: filterMode === 'all' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid rgba(255,255,255,0.1)',
+              color: filterMode === 'all' ? '#fff' : '#94a3b8', cursor: 'pointer'
+            }}>전체</button>
+            <button onClick={() => setFilterMode('incomplete')} style={{
+              padding: '8px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800',
+              background: filterMode === 'incomplete' ? 'rgba(251, 191, 36, 0.3)' : 'rgba(255,255,255,0.05)',
+              border: filterMode === 'incomplete' ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(255,255,255,0.1)',
+              color: filterMode === 'incomplete' ? '#fff' : '#94a3b8', cursor: 'pointer'
+            }}>미완료</button>
+            <button onClick={() => setFilterMode('completed')} style={{
+              padding: '8px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800',
+              background: filterMode === 'completed' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255,255,255,0.05)',
+              border: filterMode === 'completed' ? '1px solid rgba(34, 197, 94, 0.5)' : '1px solid rgba(255,255,255,0.1)',
+              color: filterMode === 'completed' ? '#fff' : '#94a3b8', cursor: 'pointer'
+            }}>완료</button>
+          </div>
+        </div>
+        <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+          <span className="header-title-mobile" style={{ fontWeight: '900', fontSize: '1.1rem', color: '#fff', letterSpacing: '-0.5px' }}>{currentHeader}</span>
+        </div>
 
-          return (
-            <div
-              key={dateStr}
-              style={{
-                borderRadius: '12px',
-                background: isToday ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255,255,255,0.03)',
-                border: isToday ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.07)',
-                overflow: 'hidden'
-              }}
-            >
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px',
-                background: isToday ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)',
-                borderBottom: dayTodos.length > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none'
-              }}>
-                <span style={{
-                  width: '32px', height: '32px', borderRadius: '50%',
-                  background: isToday ? color : 'rgba(255,255,255,0.08)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.85rem', fontWeight: 'bold', color: isToday ? '#fff' : color,
-                  border: isToday ? 'none' : `1px solid ${color}40`, flexShrink: 0
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          {displayDays.map(({ dayIndex, date, dateStr }) => {
+            const dayTodos = getScheduleTodosByDay(dayIndex, dateStr);
+            const isToday = dateStr === todayStr;
+            const color = dayColors[dayIndex];
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+
+            return (
+              <div
+                key={dateStr}
+                className="day-card-premium"
+                style={{
+                  borderRadius: '28px',
+                  background: isToday ? 'rgba(99, 102, 241, 0.05)' : 'rgba(255,255,255,0.015)',
+                  border: isToday ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                  overflow: 'hidden',
+                  boxShadow: isToday ? '0 12px 35px rgba(0,0,0,0.3)' : 'none'
+                }}
+              >
+                <div className="day-header-premium" style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 22px',
+                  background: isToday ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.03)',
+                  borderBottom: dayTodos.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none'
                 }}>
-                  {dayNames[dayIndex]}
-                </span>
-                <span style={{ color: isToday ? '#e2e8f0' : '#94a3b8', fontSize: '0.85rem', fontWeight: isToday ? '700' : '500' }}>
-                  {month}월 {day}일
-                  {isToday && <span style={{ marginLeft: '6px', fontSize: '0.7rem', background: color, color: '#fff', padding: '1px 6px', borderRadius: '8px' }}>오늘</span>}
-                </span>
-                <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: '#475569' }}>
-                  {dayTodos.length > 0 ? `${dayTodos.length}개` : '일정 없음'}
-                </span>
-              </div>
-
-              {dayTodos.length > 0 && (
-                <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {dayTodos.map(todo => (
-                    <div
-                      key={todo.id}
-                      onClick={() => { closeCalendar(); startEdit(todo); }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px',
-                        borderRadius: '8px', background: color + '15', borderLeft: `3px solid ${color}`,
-                        cursor: 'pointer', transition: 'background 0.15s'
-                      }}
-                    >
-                      <span style={{ fontSize: '0.7rem', color: color, fontWeight: '700', minWidth: '52px', flexShrink: 0 }}>
-                        {formatTime(todo.time)}
-                      </span>
-                      <span style={{ fontSize: '0.82rem', color: '#e2e8f0', flex: 1, wordBreak: 'break-word', lineHeight: '1.35' }}>
-                        {todo.text}
-                      </span>
-                      <span style={{ fontSize: '0.7rem', color: '#475569', flexShrink: 0 }}>✏️</span>
-                    </div>
-                  ))}
+                  <span style={{ width: '40px', height: '40px', borderRadius: '14px', background: isToday ? color : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '900', color: isToday ? '#fff' : color, flexShrink: 0 }}>
+                    {dayNames[dayIndex]}
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span className="date-text" style={{ color: isToday ? '#fff' : '#cbd5e1', fontSize: '1.05rem', fontWeight: '800' }}>
+                      {month}월 {day}일
+                      {isToday && <span style={{ marginLeft: '12px', fontSize: '0.7rem', background: '#6366f1', color: '#fff', padding: '3px 12px', borderRadius: '25px', verticalAlign: 'middle', fontWeight: '900' }}>TODAY</span>}
+                    </span>
+                  </div>
+                  <span style={{ marginLeft: 'auto', fontSize: '0.85rem', color: '#64748b', fontWeight: '700' }}>{dayTodos.length}개 일정</span>
                 </div>
-              )}
-            </div>
-          );
-        })}
+
+                {dayTodos.length > 0 && (
+                  <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+                    {dayTodos.map(todo => (
+                      <div
+                        key={todo.id}
+                        className="todo-item-premium"
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '15px',
+                          padding: '15px 20px', borderRadius: '18px',
+                          background: todo.completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255,255,255,0.02)',
+                          borderLeft: `5px solid ${todo.completed ? '#22c55e' : color}`,
+                          cursor: 'pointer', transition: 'all 0.2s',
+                          border: '1px solid rgba(255,255,255,0.01)',
+                          opacity: todo.completed ? 0.7 : 1
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = todo.completed ? 'rgba(34, 197, 94, 0.12)' : 'rgba(255,255,255,0.05)'; e.currentTarget.style.transform = 'translateX(5px)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = todo.completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255,255,255,0.02)'; e.currentTarget.style.transform = 'translateX(0)'; }}
+                      >
+                        <div
+                          onClick={(e) => { e.stopPropagation(); toggleTodo(todo); }}
+                          style={{
+                            width: '24px', height: '24px', minWidth: '24px',
+                            borderRadius: '6px',
+                            border: `2px solid ${todo.completed ? '#22c55e' : color}`,
+                            background: todo.completed ? '#22c55e' : 'transparent',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', transition: 'all 0.2s',
+                            flexShrink: 0
+                          }}
+                        >
+                          {todo.completed && <span style={{ color: '#fff', fontSize: '0.9rem', fontWeight: '900' }}>✓</span>}
+                        </div>
+                        <span style={{ fontSize: '0.85rem', color: todo.completed ? '#64748b' : color, fontWeight: '900', minWidth: '70px' }}>{formatTime(todo.time)}</span>
+                        <span style={{ fontSize: '1rem', color: todo.completed ? '#64748b' : '#f1f5f9', flex: 1, fontWeight: '600', textDecoration: todo.completed ? 'line-through' : 'none' }}>{todo.text}</span>
+                        <span onClick={(e) => { e.stopPropagation(); closeCalendar(); startEdit(todo); }} style={{ fontSize: '0.9rem', opacity: 0.5, cursor: 'pointer', padding: '4px' }}>✏️</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -2441,17 +2556,39 @@ function App() {
       )}
 
       {showScheduleCalendar && (
-        <div className="modal-overlay full-screen" onClick={() => setShowScheduleCalendar(false)}>
-          <div className="affirmation-modal full-screen" onClick={e => e.stopPropagation()}>
-            <div className="modal-sticky-area" style={{ position: 'sticky', top: 0, zIndex: 1000, background: '#0f172a' }}>
-              <div className="modal-header">
-                <h2>📅 일정 캘린더</h2>
-                <button className="modal-close-x" onClick={() => setShowScheduleCalendar(false)}>✕</button>
-              </div>
-            </div>
-            <div className="chart-modal-content" style={{ padding: '20px 15px 60px 15px' }}>
-              <ScheduleOnlyCalendar todos={todos} startEdit={startEdit} closeCalendar={() => setShowScheduleCalendar(false)} key={JSON.stringify(todos)} />
-            </div>
+        <div className="modal-overlay full-screen no-padding" style={{ background: '#0f172a', zIndex: 2000 }}>
+          <div className="modal-content-full scroll-style-none" style={{ background: '#0f172a', width: '100%', height: '100%', overflowY: 'auto' }}>
+            <ScheduleOnlyCalendar 
+              todos={todos} 
+              startEdit={startEdit} 
+              closeCalendar={() => setShowScheduleCalendar(false)} 
+              toggleTodo={toggleTodo}
+              userPoints={userPoints}
+              progress={progress}
+              userAvatar={userAvatar}
+              currentUser={currentUser}
+              setShowSuccessRoom={setShowSuccessRoom}
+              setShowMyPage={setShowMyPage}
+              setShowDailyChart={setShowDailyChart}
+              handleInstallClick={handleInstallClick}
+              showInstallBtn={showInstallBtn}
+              setIsAuthenticated={setIsAuthenticated}
+              setCurrentUser={setCurrentUser}
+            />
+            
+            {/* 하단 플로팅 닫기 버튼 */}
+            <button 
+              onClick={() => setShowScheduleCalendar(false)}
+              style={{
+                position: 'fixed', bottom: '30px', left: '50%', transform: 'translateX(-50%)',
+                background: 'rgba(239, 68, 68, 0.95)', color: '#fff', border: 'none',
+                padding: '12px 30px', borderRadius: '30px', fontWeight: '900', fontSize: '1rem',
+                boxShadow: '0 10px 20px rgba(239, 68, 68, 0.3)', zIndex: 3000,
+                display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid rgba(255,255,255,0.2)'
+              }}
+            >
+              닫고 대시보드로 돌아가기 ✕
+            </button>
           </div>
         </div>
       )}
