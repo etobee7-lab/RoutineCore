@@ -530,6 +530,52 @@ app.patch('/api/affirmations/:id', async (req, res) => {
     }
 });
 
+// ===== DAILY COMPLETIONS (날짜별 상세 완료 기록) =====
+app.get('/api/daily-completions', async (req, res) => {
+    try {
+        const { username, startDate, endDate } = req.query;
+        if (!username) return res.status(400).json({ error: "username 필요" });
+        
+        let query = "SELECT todo_id, date FROM daily_completions WHERE username = ?";
+        const params = [username];
+        
+        if (startDate && endDate) {
+            query += " AND date BETWEEN ? AND ?";
+            params.push(startDate, endDate);
+        }
+        
+        const [rows] = await pool.query(query, params);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/daily-completions/toggle', async (req, res) => {
+    try {
+        const { todo_id, date, username } = req.body;
+        if (!todo_id || !date || !username) return res.status(400).json({ error: "필수 정보 누락" });
+
+        // [남개발 부장] 미래 날짜 성공 처리 방지 로직 (요청 사항)
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (date > todayStr) {
+            return res.status(400).json({ error: "미래 날짜는 미리 성공 처리할 수 없습니다." });
+        }
+
+        const [existing] = await pool.query("SELECT * FROM daily_completions WHERE todo_id = ? AND date = ?", [todo_id, date]);
+        
+        if (existing.length > 0) {
+            await pool.query("DELETE FROM daily_completions WHERE todo_id = ? AND date = ?", [todo_id, date]);
+            res.json({ success: true, completed: false });
+        } else {
+            await pool.query("INSERT INTO daily_completions (todo_id, date, username, createdAt) VALUES (?, ?, ?, ?)", [todo_id, date, username, Date.now()]);
+            res.json({ success: true, completed: true });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ===== TODOS (사용자별) =====
 // ===== TODOS (통합 인터페이스) =====
 app.get('/api/todos', async (req, res) => {
