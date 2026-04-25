@@ -398,6 +398,13 @@ body {
   box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
 }
 
+.nav-btn.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
 .nav-btn.logout {
   grid-column: span 4;
   margin-top: 4px;

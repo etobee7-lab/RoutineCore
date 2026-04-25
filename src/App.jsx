@@ -649,16 +649,10 @@ const ScheduleOnlyCalendar = ({ todos, completions, startEdit, closeCalendar, to
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="nav-btn-premium active" onClick={closeCalendar} style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(99, 102, 241, 0.2)', border: '1px solid rgba(99, 102, 241, 0.4)', color: '#fff', fontWeight: '900', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-            <span style={{ fontSize: '1rem' }}>📝</span> 일정등록
-          </button>
-          <button className="nav-btn-premium" onClick={() => { setShowMyPage(false); setShowSuccessRoom(true); }} style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-            <span style={{ fontSize: '1rem' }}>🏛️</span> 성공
-          </button>
-          <button className="nav-btn-premium" onClick={() => { setShowSuccessRoom(false); setShowMyPage(true); }} style={{ flex: 1, padding: '9px', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-            <span style={{ fontSize: '1rem' }}>👤</span> MY
-          </button>
+        <div className="header-action-grid">
+          <button className="nav-btn calendar active" onClick={closeCalendar}>📝 일정등록</button>
+          <button className="nav-btn room" onClick={() => { setShowMyPage(false); setShowSuccessRoom(true); }}>🏛️ 성공의 방</button>
+          <button className="nav-btn my" onClick={() => { setShowSuccessRoom(false); setShowMyPage(true); }}>👤 MY</button>
         </div>
       </div>
 
