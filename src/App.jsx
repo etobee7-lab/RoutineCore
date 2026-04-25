@@ -874,8 +874,9 @@ function App() {
 
   // [남개발 부장] 기간 선택 캘린더 엔진용 센서 장착!
   const [showCalendar, setShowCalendar] = useState(false); // 달력 노출 여부
-  const [rangeStart, setRangeStart] = useState(null);       // 시작일
-  const [rangeEnd, setRangeEnd] = useState(null);           // 종료일
+  const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const [rangeStart, setRangeStart] = useState(todayStr);   // 시작일
+  const [rangeEnd, setRangeEnd] = useState(todayStr);       // 종료일
 
   // [남개발 부장] 히트맵 데이터 상태 (Idea 2)
   const [heatmapData, setHeatmapData] = useState([]);
@@ -1806,8 +1807,8 @@ function App() {
     setMinute(nextT.minute);
     setScheduleMode('schedule');
     setPrevIsSchedule(null);
-    setRangeStart(null);
-    setRangeEnd(null);
+    setRangeStart(todayStr);
+    setRangeEnd(todayStr);
   };
 
   // [남개발 팀장] 예약/Enter 버튼 누를 때 시간 파싱 후 저장
@@ -1957,8 +1958,8 @@ function App() {
     setEditAmpm('오전');
     setEditHour('09');
     setEditMinute('00');
-    setRangeStart(null);
-    setRangeEnd(null);
+    setRangeStart(todayStr);
+    setRangeEnd(todayStr);
   };
 
   const saveEdit = async (id) => {
@@ -3507,7 +3508,7 @@ function App() {
                     }} />
                     <span>주말 제외</span>
                   </label>
-                  <button type="button" className="calendar-picker-btn" title="날짜 선택" onClick={handleOpenCalendar}>📅</button>
+                  <button type="button" className="calendar-picker-btn" title="날짜 선택" onClick={handleOpenCalendar}>📅 {rangeStart ? (rangeEnd && rangeEnd !== rangeStart ? `${rangeStart.slice(5)} ~ ${rangeEnd.slice(5)}` : rangeStart.slice(5)) : '날짜'}</button>
                 </div>
                 <button type="button" className="clear-form-btn" onClick={() => resetForm(false)}>초기화</button>
               </div>
@@ -3627,7 +3628,7 @@ function App() {
                             />
                             <span>주말 제외</span>
                           </label>
-                          <button type="button" className="calendar-picker-btn" title="날짜 선택" onClick={handleOpenCalendar}>📅</button>
+                          <button type="button" className="calendar-picker-btn" title="날짜 선택" onClick={handleOpenCalendar}>📅 {rangeStart ? (rangeEnd && rangeEnd !== rangeStart ? `${rangeStart.slice(5)} ~ ${rangeEnd.slice(5)}` : rangeStart.slice(5)) : '날짜'}</button>
                         </div>
                         <button type="button" className="clear-form-btn" onClick={() => { resetEditForm(); }}>초기화</button>
                       </div>
