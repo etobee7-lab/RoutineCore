@@ -3420,7 +3420,7 @@ function App() {
 
       <div className={`todo-container ${scheduleMode}-mode`}>
         <div className="main-sticky-wrapper">
-          <div className="app-header-premium">
+          <div className="app-header-premium" style={{ margin: 0 }}>
             <div className="header-topmost-row">
               <div className="brand-logo" onClick={() => setShowDailyChart(true)}>
                 <img src="/logo512.png" alt="Routine Core Logo" className="header-logo-img" />
@@ -3468,7 +3468,9 @@ function App() {
               {formatCurrentTime(currentTime)}
             </div>
           </div>
+        </div>
 
+        <div style={{ padding: '0 1.2rem 1.2rem' }}>
           <div className="input-group scheduler">
             <div className="input-with-voice">
               <input
@@ -3543,7 +3545,6 @@ function App() {
               {listSort === 'asc' ? '⏰ 오전순' : '⏰ 밤순'}
             </button>
           </div>
-        </div>
 
         {/* 일정 리스트 (오늘 요일 일정이거나, 오늘 이미 성공/알람 확인된 것만 표시) */}
         <ul className="todo-list">
@@ -3748,7 +3749,7 @@ function App() {
           })()
           }
         </ul>
-
+        </div>
       </div>
 
       {/* [남개발 부장] 기간 선택 캘린더 모달 엔진 - 최상위 프래그먼트로 탈출! */}
