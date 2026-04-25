@@ -2,19 +2,18 @@ import { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import './App.css'
 
-// API 설정: 로컬과 원격 통일 - 상대 경로 사용 (Vite 프록시 통해 백엔드로 전달)
-const API_BASE = '';
+import RenderAvatar from './components/RenderAvatar'
+import ScrollPicker from './components/ScrollPicker'
+import DailyScheduleChart from './components/DailyScheduleChart'
+import AchievementHeatmap from './components/AchievementHeatmap'
+import ScheduleOnlyCalendar from './components/ScheduleOnlyCalendar'
 
-const API_URL = `${API_BASE}/api/todos`;
-const API_URL_COMPLETIONS = `${API_BASE}/api/daily-completions`;
-const AFFIRMATIONS_API_URL = `${API_BASE}/api/affirmations`;
-const LOGIN_API_URL = `${API_BASE}/api/login`;
-const REGISTER_API_URL = `${API_BASE}/api/register`;
-const CHANGE_PW_API_URL = `${API_BASE}/api/change-password`;
-const PROFILE_API_URL = `${API_BASE}/api/profile`;
-const UPDATE_PROFILE_API_URL = `${API_BASE}/api/update-profile`;
-const ADMIN_EXPORT_API_URL = `${API_BASE}/api/admin/export`;
-const ADMIN_IMPORT_API_URL = `${API_BASE}/api/admin/import`;
+import { API_URLS, fetchAPI } from './services/api'
+import { useAuth } from './hooks/useAuth'
+import { useTodos } from './hooks/useTodos'
+import { usePWA } from './hooks/usePWA'
+import { useAlarm, ALARM_SOUNDS } from './hooks/useAlarm'
+import { useNotifications } from './hooks/useNotifications'
 
 
 const AVATARS = [
@@ -24,24 +23,9 @@ const AVATARS = [
 ];
 
 
-const RenderAvatar = ({ avatar, className = '' }) => {
-  if (avatar && (avatar.startsWith('/') || avatar.startsWith('http'))) {
-    return <img src={avatar} alt="avatar" className={className} />;
-  }
-  return <span className={className}>{avatar}</span>;
-}
 
 const DAYS_OF_WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 
-// ===== 알람 소리 정의 =====
-const ALARM_SOUNDS = [
-  { id: 'chime', name: '🔔 차임벨', desc: '부드러운 3단 차임' },
-  { id: 'beep', name: '📢 기본 비프', desc: '심플한 알림음' },
-  { id: 'melody', name: '🎵 멜로디', desc: '도미솔 화음' },
-  { id: 'urgent', name: '🚨 긴급 알람', desc: '빠른 반복음' },
-  { id: 'soft', name: '🌙 부드러운 벨', desc: '은은한 알림' },
-  { id: 'digital', name: '📱 디지털', desc: '전자 알림음' },
-];
 
 // ===== 성공의 방 아이템 정의 =====
 const SUCCESS_ITEMS = [
@@ -54,228 +38,7 @@ const SUCCESS_ITEMS = [
   { id: 'orchid', name: '축하란', icon: '🪴', cost: 400 },
 ];
 
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let audioContext = null;
 
-const speakText = (text, voiceName, callback) => {
-  if (typeof window === 'undefined' || !window.speechSynthesis) {
-    console.warn("TTS not supported.");
-    return;
-  }
-  try {
-    // [남개발 팀장] 모바일 브라우저 호환성을 위한 초기화 체크
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-    }
-
-    window.speechSynthesis.cancel();
-
-    // 이모지 및 특수문자 제거 로직 간소화 (모바일 성능 고려)
-    const utterance = new SpeechSynthesisUtterance(text);
-
-    // [남개발 팀장] 최적의 한국어 보이스 선택 로직 (1번/3번 제안 반영)
-    const voices = window.speechSynthesis.getVoices();
-    if (voiceName) {
-      const voice = voices.find(v => v.name === voiceName);
-      if (voice) utterance.voice = voice;
-    } else {
-      // 한국어 보이스 중 선호 목록 (더 밝고 자연스러운 목소리 우선)
-      const preferredVoices = ['Google 한국어', 'Microsoft Heami', 'Microsoft Sun-Hi', 'Apple Yuna', 'Gaeul', 'Jinho'];
-      let selectedVoice = null;
-
-      for (const p of preferredVoices) {
-        selectedVoice = voices.find(v => (v.name.includes(p)) && v.lang.includes('ko'));
-        if (selectedVoice) break;
-      }
-
-      if (!selectedVoice) {
-        selectedVoice = voices.find(v => v.lang.includes('ko'));
-      }
-
-      if (selectedVoice) utterance.voice = selectedVoice;
-    }
-
-    utterance.lang = 'ko-KR';
-    utterance.rate = 1.1;  // [남개발 팀장] 밝고 경쾌한 에너지 (1.1)
-    utterance.pitch = 1.35; // [남개발 팀장] 톤 업 (1.35)
-    utterance.volume = 1.0;
-
-    if (callback) utterance.onend = callback;
-
-    // 약간의 지연 처리로 비동기 초기화 대응
-    setTimeout(() => {
-      window.speechSynthesis.speak(utterance);
-    }, 100);
-  } catch (err) {
-    console.error("Speech Synthesis Failed:", err);
-  }
-};
-
-const playAlarmSound = (soundId) => {
-  try {
-    if (!AudioCtx) return;
-    if (!audioContext) {
-      audioContext = new AudioCtx();
-    }
-
-    // 브라우저 정책으로 인해 중단된 경우 재개 시도
-    if (audioContext.state === 'suspended') {
-      audioContext.resume();
-    }
-
-    const ctx = audioContext;
-
-    const playNote = (freq, startTime, duration, type = 'sine', vol = 0.25) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
-      gain.gain.setValueAtTime(vol, ctx.currentTime + startTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + startTime);
-      osc.stop(ctx.currentTime + startTime + duration);
-    };
-
-    switch (soundId) {
-      case 'chime': // 차임벨: 도-미-솔 상승 차임
-        playNote(523, 0, 0.4, 'sine', 0.2);
-        playNote(659, 0.25, 0.4, 'sine', 0.2);
-        playNote(784, 0.5, 0.6, 'sine', 0.25);
-        break;
-      case 'beep': // 기본 비프: 단순한 비프음
-        playNote(880, 0, 0.3, 'square', 0.15);
-        playNote(880, 0.4, 0.3, 'square', 0.15);
-        break;
-      case 'melody': // 멜로디: 도미솔도 아르페지오
-        playNote(523, 0, 0.3, 'sine', 0.15);
-        playNote(659, 0.2, 0.3, 'sine', 0.15);
-        playNote(784, 0.4, 0.3, 'sine', 0.15);
-        playNote(1047, 0.6, 0.5, 'sine', 0.2);
-        break;
-      case 'urgent': // 긴급: 빠른 반복 경고음
-        for (let i = 0; i < 6; i++) {
-          playNote(1000, i * 0.15, 0.1, 'square', 0.15);
-        }
-        break;
-      case 'soft': // 부드러운 벨: 은은한 3음
-        playNote(440, 0, 0.8, 'sine', 0.12);
-        playNote(554, 0.1, 0.8, 'sine', 0.1);
-        playNote(659, 0.2, 0.8, 'sine', 0.08);
-        break;
-      case 'digital': // 디지털: 전자음 느낌
-        playNote(1200, 0, 0.15, 'square', 0.12);
-        playNote(1500, 0.15, 0.15, 'square', 0.12);
-        playNote(1200, 0.35, 0.15, 'square', 0.12);
-        playNote(1500, 0.5, 0.15, 'square', 0.12);
-        break;
-      default:
-        playNote(880, 0, 0.5, 'sine', 0.15);
-    }
-  } catch (e) { console.warn('Alarm sound failed', e); }
-};
-
-function ScrollPicker({ options, value, onChange, unit }) {
-  const scrollRef = useRef(null);
-  const itemHeight = 28; // [남개발 부장] 항목 높이
-  const paddingTop = 28; // [남개발 부장] 패딩 높이 (항목 1개분)
-  const extendedOptions = [...options, ...options, ...options]; // 3배 확장하여 루프 구현
-  const middleStart = options.length;
-
-  // 초기 위치 설정 (중앙 섹션의 선택된 값으로)
-  useEffect(() => {
-    if (scrollRef.current) {
-      // [남개발 부장] 리스트에 없는 값(1분 단위)이 들어오면 근사치 인덱스 활용
-      const valInt = parseInt(value);
-      const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
-      let selectedIndex = options.indexOf(value);
-      if (selectedIndex === -1) selectedIndex = options.indexOf(roundedVal);
-      if (selectedIndex === -1) selectedIndex = 0;
-
-      // 중앙 정렬 공식: (인덱스 * 높이) -> 패딩이 높이와 같으므로 상쇄됨
-      scrollRef.current.scrollTop = (middleStart + selectedIndex) * itemHeight;
-    }
-  }, []);
-
-  // 외부에서 value가 바뀔 때 (수정 모드 등) 대응
-  useEffect(() => {
-    if (scrollRef.current) {
-      const currentScrollTop = scrollRef.current.scrollTop;
-      const currentIndex = Math.round(currentScrollTop / itemHeight) % options.length;
-
-      const valInt = parseInt(value);
-      const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
-      let targetIndex = options.indexOf(value);
-      if (targetIndex === -1) targetIndex = options.indexOf(roundedVal);
-      if (targetIndex === -1) targetIndex = 0;
-
-      if (currentIndex !== targetIndex) {
-        const currentSegment = Math.floor(currentScrollTop / (options.length * itemHeight));
-        scrollRef.current.scrollTop = (currentSegment * options.length + targetIndex) * itemHeight;
-      }
-    }
-  }, [value, options]);
-
-  const handleScroll = () => {
-    if (!scrollRef.current) return;
-    const { scrollTop } = scrollRef.current;
-
-    // 무한 루프 점프 로직 개선 (버퍼 추가로 끊김 방지)
-    const totalHeight = options.length * itemHeight;
-    if (scrollTop < itemHeight) {
-      scrollRef.current.scrollTop = scrollTop + totalHeight;
-      return;
-    } else if (scrollTop > totalHeight * 2 - itemHeight) {
-      scrollRef.current.scrollTop = scrollTop - totalHeight;
-      return;
-    }
-
-    const index = Math.round(scrollTop / itemHeight) % options.length;
-    const selectedValue = options[index];
-
-    // [남개발 부장] 핵심 로직: 현재 값이 1분 단위(예: 07)인 경우, 
-    // 선택된 값(05)이 현재 값의 반올림값(05)과 같다면 강제 업데이트 방지 (1분 데이터 보존)
-    const valInt = parseInt(value);
-    const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
-
-    if (selectedValue && selectedValue !== value && selectedValue !== roundedVal) {
-      onChange(selectedValue);
-    }
-  };
-
-  const handleClick = (idx) => {
-    if (!scrollRef.current) return;
-    const actualIdx = idx % options.length;
-    const currentScrollTop = scrollRef.current.scrollTop;
-    const currentSegment = Math.floor(currentScrollTop / (options.length * itemHeight));
-    scrollRef.current.scrollTo({ top: (currentSegment * options.length + actualIdx) * itemHeight, behavior: 'smooth' });
-  };
-
-  return (
-    <div className="picker-column">
-      <div className="picker-scroll-container" ref={scrollRef} onScroll={handleScroll}>
-        <div className="picker-padding-top" style={{ height: '28px' }} />
-        {extendedOptions.map((opt, idx) => {
-          const isStandard = options.includes(opt); // 원래 5분 단위 눈금인지 확인
-          const isActive = value === opt;
-          return (
-            <div
-              key={`${opt}-${idx}`}
-              className={`picker-item ${isActive ? 'active' : ''} ${!isStandard ? 'precision-mode' : ''}`}
-              onClick={() => handleClick(idx)}
-              style={!isStandard && isActive ? { color: '#fbbf24', fontWeight: 'bold' } : {}}
-            >
-              {opt}{isActive && !isStandard ? '★' : unit}
-            </div>
-          );
-        })}
-        <div className="picker-padding-bottom" style={{ height: '28px' }} />
-      </div>
-      <div className="picker-selection-overlay" />
-    </div>
-  );
-}
 
 // [남개발 부장] 주간 일정 관리를 위한 주차 계산 유틸리티 (월요일 기준)
 const getWeekStr = () => {
@@ -297,493 +60,36 @@ const getLevelInfo = (points) => {
   return { title: '자정의 전설', color: '#f59e0b' };
 };
 
-// 차트 상수 및 유틸리티
-const radius = 140;
-const center = 180;
-
-const polarToCartesian = (cx, cy, r, angleInDegrees) => {
-  const angleInRadians = (angleInDegrees - 90) * (Math.PI / 180.0);
-  return {
-    x: cx + r * Math.cos(angleInRadians),
-    y: cy + r * Math.sin(angleInRadians),
-  };
-};
-
-const describeArc = (x, y, r, startAngle, endAngle) => {
-  const diff = endAngle - startAngle;
-  if (diff <= 0) return '';
-  if (diff >= 359.99) {
-    return `M ${x},${y - r} A ${r},${r} 0 1 1 ${x - 0.01},${y - r} Z`;
-  }
-  const start = polarToCartesian(x, y, r, endAngle);
-  const end = polarToCartesian(x, y, r, startAngle);
-  const largeArcFlag = diff <= 180 ? '0' : '1';
-  return ['M', x, y, 'L', start.x, start.y, 'A', r, r, 0, largeArcFlag, 0, end.x, end.y, 'Z'].join(' ');
-};
-
-const getDailyScheduleData = (todos) => {
-  const sortedTodos = [...todos].sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
-  if (sortedTodos.length === 0) return [];
-  const segments = [];
-  for (let i = 0; i < sortedTodos.length; i++) {
-    const current = sortedTodos[i];
-    const next = sortedTodos[(i + 1) % sortedTodos.length];
-    const timeParts = (current.time || '00:00').split(':').map(Number);
-    const nextParts = (next.time || '00:00').split(':').map(Number);
-    let startMinutes = (timeParts[0] || 0) * 60 + (timeParts[1] || 0);
-    let endMinutes = (nextParts[0] || 0) * 60 + (nextParts[1] || 0);
-    if (endMinutes <= startMinutes) endMinutes += 24 * 60;
-    if (endMinutes - startMinutes === 0) continue;
-    segments.push({
-      text: current.text || '일정',
-      startMinutes,
-      endMinutes,
-      color: `hsl(${(i * 137.5) % 360}, 70%, 65%)`,
-    });
-  }
-  return segments;
-};
-
-const DailyScheduleChart = ({ todos }) => {
-  const segments = getDailyScheduleData(todos);
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const nowAngle = (nowMinutes / (24 * 60)) * 360;
-  const pEnd = polarToCartesian(center, center, radius + 15, nowAngle);
-
-  return (
-    <div className="daily-chart-svg-wrapper">
-      <svg viewBox="0 0 360 360" className="daily-chart-svg">
-        <circle cx={center} cy={center} r={radius + 20} fill="rgba(255, 255, 255, 0.02)" />
-        <circle cx={center} cy={center} r={radius} fill="#0f172a" stroke="rgba(255, 255, 255, 0.1)" strokeWidth="4" />
-        {Array.from({ length: 24 }).map((_, i) => {
-          const angle = i * 15;
-          const isMain = i % 3 === 0;
-          const p1 = polarToCartesian(center, center, radius - 8, angle);
-          const p2 = polarToCartesian(center, center, radius + 8, angle);
-          return (
-            <g key={i}>
-              <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={isMain ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.1)'} strokeWidth={isMain ? '2' : '1'} />
-              {isMain && (
-                <text x={polarToCartesian(center, center, radius + 25, angle).x} y={polarToCartesian(center, center, radius + 25, angle).y} fill="rgba(255,255,255,0.5)" fontSize="13" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
-                  {i}
-                </text>
-              )}
-            </g>
-          );
-        })}
-        {segments.map((seg, i) => {
-          const startAngle = (seg.startMinutes / (24 * 60)) * 360;
-          const endAngle = (seg.endMinutes / (24 * 60)) * 360;
-          const midAngle = startAngle + (endAngle - startAngle) / 2;
-          const textPos = polarToCartesian(center, center, radius * 0.65, midAngle);
-          return (
-            <g key={i} className="chart-segment-group">
-              <path d={describeArc(center, center, radius - 4, startAngle, endAngle)} fill={seg.color} className="chart-path" opacity="0.8" />
-              {endAngle - startAngle > 10 && (
-                <g style={{ pointerEvents: 'none' }}>
-                  <text x={textPos.x} y={textPos.y} fill="none" stroke="#ffffff" strokeWidth="3" strokeLinejoin="round" fontSize="14" fontWeight="900" textAnchor="middle" dominantBaseline="middle">
-                    {seg.text.length > 8 ? seg.text.substring(0, 7) + '..' : seg.text}
-                  </text>
-                  <text x={textPos.x} y={textPos.y} fill="#000000" fontSize="14" fontWeight="900" textAnchor="middle" dominantBaseline="middle">
-                    {seg.text.length > 8 ? seg.text.substring(0, 7) + '..' : seg.text}
-                  </text>
-                </g>
-              )}
-            </g>
-          );
-        })}
-        <g className="now-hand">
-          <line x1={center} y1={center} x2={pEnd.x} y2={pEnd.y} stroke="#ff4757" strokeWidth="3" strokeLinecap="round" />
-          <circle cx={center} cy={center} r="6" fill="#0f172a" stroke="#ff4757" strokeWidth="2" />
-          <circle cx={pEnd.x} cy={pEnd.y} r="5" fill="#ff4757" />
-        </g>
-      </svg>
-    </div>
-  );
-};
-
-// [남개발 부장] 시각적 성취 히트맵 컴포넌트 (Idea 2)
-const AchievementHeatmap = ({ data }) => {
-  if (!data) return null;
-
-  // 최근 1년치(52주) 날짜 데이터 생성
-  const today = new Date();
-  const days = [];
-  // 시작 날짜를 작년 오늘로부터 일요일까지 앞으로 당겨서 7열 격자를 맞춤
-  const startDate = new Date(today);
-  startDate.setDate(today.getDate() - 364);
-  const startDay = startDate.getDay();
-  startDate.setDate(startDate.getDate() - startDay); // 해당 주의 일요일로 맞춤
-
-  const totalDays = 371; // 약 53주 (7 * 53)
-  for (let i = 0; i < totalDays; i++) {
-    const d = new Date(startDate);
-    d.setDate(startDate.getDate() + i);
-    days.push(d.toISOString().split('T')[0]);
-  }
-
-  const dataMap = data.reduce((acc, row) => {
-    acc[row.date] = row.completed_missions / (row.total_missions || 1);
-    return acc;
-  }, {});
-
-  const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
-
-  return (
-    <div className="heatmap-wrapper">
-      <div className="heatmap-header-row">
-        {weekDays.map(d => <span key={d} className="heatmap-weekday-label">{d}</span>)}
-      </div>
-      <div className="heatmap-grid-container">
-        {days.map(date => {
-          const ratio = dataMap[date] || 0;
-          let level = 0;
-          if (ratio > 0) level = 1;
-          if (ratio > 0.3) level = 2;
-          if (ratio > 0.6) level = 3;
-          if (ratio >= 0.9) level = 4;
-          
-          const isFuture = date > today.toISOString().split('T')[0];
-
-          return (
-            <div 
-              key={date} 
-              className={`heatmap-cell level-${level} ${isFuture ? 'future' : ''}`} 
-              title={`${date}: ${Math.round(ratio * 100)}% 달성`}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
+const formatTime = (timeStr) => {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':').map(Number);
+  const ampm = h < 12 ? '오전' : '오후';
+  const h12 = h % 12 || 12;
+  return `${ampm} ${h12}:${String(m).padStart(2, '0')}`;
 };
 
 
-const ScheduleOnlyCalendar = ({ todos, completions, startEdit, closeCalendar, toggleTodo, userPoints, progress, userAvatar, currentUser, setShowSuccessRoom, setShowMyPage, setShowDailyChart, handleInstallClick, showInstallBtn, setIsAuthenticated, setCurrentUser }) => {
-  const [baseDate, setBaseDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState('week');
-  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'completed' | 'incomplete' 
 
-  const dayNameToIndex = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
-  const dayColors = {
-    0: '#f87171', 1: '#60a5fa', 2: '#34d399',
-    3: '#fbbf24', 4: '#a78bfa', 5: '#f472b6', 6: '#fb923c'
-  };
-  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
-  const toLocalDateStr = (d) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const todayStr = toLocalDateStr(today);
-
-  const moveWeek = (offset) => {
-    const next = new Date(baseDate);
-    next.setDate(baseDate.getDate() + offset * 7);
-    setBaseDate(next);
-  };
-
-  const moveMonth = (offset) => {
-    const next = new Date(baseDate);
-    next.setMonth(baseDate.getMonth() + offset);
-    setBaseDate(next);
-  };
-
-  const resetToToday = () => {
-    setBaseDate(new Date());
-    setViewMode('week');
-  };
-
-  useEffect(() => {
-    // [남개발 부장] 일정 캘린더 진입 시 오늘 날짜로 자동 스크롤!
-    setTimeout(() => {
-      const todayEl = document.getElementById('calendar-today');
-      if (todayEl) {
-        todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
-  }, []);
-
-  const getDisplayDays = () => {
-    if (viewMode === 'week') {
-      const d = new Date(baseDate);
-      const diff = d.getDay() === 0 ? -6 : 1 - d.getDay();
-      d.setDate(d.getDate() + diff);
-      return Array.from({ length: 7 }, (_, i) => {
-        const target = new Date(d);
-        target.setDate(d.getDate() + i);
-        return { dayIndex: target.getDay(), date: target, dateStr: toLocalDateStr(target) };
-      });
-    } else {
-      const year = baseDate.getFullYear();
-      const month = baseDate.getMonth();
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      const days = [];
-      for (let i = 1; i <= lastDay.getDate(); i++) {
-        const target = new Date(year, month, i);
-        days.push({ dayIndex: target.getDay(), date: target, dateStr: toLocalDateStr(target) });
-      }
-      return days;
-    }
-  };
-
-  const displayDays = getDisplayDays();
-
-  const getScheduleTodosByDay = (dayIndex, dateStr) => {
-    return todos.filter(todo => {
-      if (todo.scheduleMode !== 'schedule') return false;
-      if (todo.startDate && dateStr < todo.startDate) return false;
-      if (todo.endDate && dateStr > todo.endDate) return false;
-      if (todo.days && todo.days.trim() !== '') {
-        const indices = todo.days.split(',').map(d => dayNameToIndex[d.trim()]).filter(i => i !== undefined);
-        return indices.includes(dayIndex);
-      }
-      return true;
-    }).filter(todo => {
-      if (filterMode === 'all') return true;
-      if (filterMode === 'completed') return todo.completed;
-      if (filterMode === 'incomplete') return !todo.completed;
-      return true;
-    }).sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
-  };
-
-  const formatTime = (timeStr) => {
-    const [h, m] = (timeStr || '09:00').split(':').map(Number);
-    return `${h < 12 ? '오전' : '오후'} ${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-  };
-
-  const currentHeader = viewMode === 'week' 
-    ? `${baseDate.getFullYear()}년 ${baseDate.getMonth() + 1}월 ${Math.ceil(baseDate.getDate() / 7)}주차`
-    : `${baseDate.getFullYear()}년 ${baseDate.getMonth() + 1}월 전체`;
-
-  return (
-    <div className="calendar-mobile-optimized" style={{ 
-      display: 'flex', flexDirection: 'column', gap: '0', 
-      background: 'linear-gradient(to bottom, #0f172a, #1e293b)', 
-      minHeight: '100vh', paddingBottom: '120px',
-      position: 'relative', zIndex: 1
-    }}>
-      <style>{`
-        @media (max-width: 600px) {
-          .premium-header-sticky { padding: 15px 15px 12px 15px !important; }
-          .brand-logo h1 { font-size: 1.1rem !important; }
-          .brand-logo span { font-size: 0.9rem !important; }
-          .brand-logo img { width: 34px !important; height: 34px !important; }
-          .points-pill { padding: 5px 10px !important; gap: 8px !important; border-radius: 14px !important; }
-          .points-pill span { font-size: 0.9rem !important; }
-          .points-pill .progress-mini { width: 25px !important; height: 30px !important; }
-          .user-profile-pill { padding: 4px 10px 4px 4px !important; border-radius: 20px !important; }
-          .user-profile-pill span { display: none !important; }
-          .user-profile-pill div { width: 32px !important; height: 32px !important; }
-          .nav-btn-premium { padding: 10px !important; font-size: 0.8rem !important; border-radius: 14px !important; }
-          .nav-btn-premium span { font-size: 1rem !important; }
-          .day-card-premium { border-radius: 20px !important; }
-          .day-header-premium { padding: 12px 15px !important; }
-          .day-header-premium .date-text { font-size: 0.95rem !important; }
-          .todo-item-premium { padding: 12px 15px !important; border-radius: 14px !important; }
-          .todo-item-premium span { font-size: 0.85rem !important; }
-          .exit-btn { padding: 8px 12px !important; font-size: 1rem !important; }
-          .nav-arrow, .nav-today-btn { height: 36px !important; width: 36px !important; font-size: 0.8rem !important; }
-          .nav-today-btn { width: auto !important; padding: 0 12px !important; }
-          .header-title-mobile { font-size: 0.95rem !important; }
-        }
-      `}</style>
-      
-      <div className="premium-header-sticky" style={{
-        background: 'rgba(15, 23, 42, 0.9)',
-        padding: '12px 15px 10px 15px', borderRadius: '0 0 20px 20px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-        position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(20px)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <div className="brand-logo" onClick={closeCalendar} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-            <img src="/logo512.png" alt="Logo" style={{ width: '30px', height: '30px', filter: 'drop-shadow(0 0 8px rgba(96, 165, 250, 0.4))' }} />
-            <div style={{ marginLeft: '8px' }}>
-              <h1 style={{ fontSize: '1.05rem', margin: 0, color: '#fff', fontWeight: '900', letterSpacing: '-0.8px', lineHeight: 1.1 }}>Routine</h1>
-              <span style={{ fontSize: '0.85rem', color: '#60a5fa', fontWeight: '800' }}>Core</span>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="points-pill" style={{ 
-              display: 'flex', alignItems: 'center', gap: '8px', 
-              padding: '5px 10px', background: 'rgba(255,255,255,0.04)', 
-              borderRadius: '14px', border: '1px solid rgba(255,255,255,0.08)' 
-            }}>
-              <span style={{ fontSize: '0.9rem', fontWeight: '900', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px' }}>💰 {userPoints.toLocaleString()}</span>
-              <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }}></div>
-              <div className="progress-mini" style={{ width: '22px', height: '26px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', position: 'relative', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ width: '100%', height: `${progress}%`, background: 'linear-gradient(to top, #3b82f6, #60a5fa)', position: 'absolute', bottom: 0, transition: 'height 0.8s' }}></div>
-              </div>
-            </div>
-
-            <div className="user-profile-pill" style={{ 
-              display: 'flex', alignItems: 'center', gap: '6px', 
-              padding: '4px 8px 4px 4px', background: 'rgba(96, 165, 250, 0.1)', 
-              borderRadius: '24px', border: '1px solid rgba(96, 165, 250, 0.2)',
-              cursor: 'pointer'
-            }} onClick={() => setShowMyPage(true)}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid #60a5fa', padding: '1px', background: 'rgba(96, 165, 250, 0.1)', overflow: 'hidden' }}>
-                <RenderAvatar avatar={userAvatar} />
-              </div>
-              <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: '700' }}>{currentUser}</span>
-            </div>
-
-            <button className="exit-btn" onClick={() => {
-              setIsAuthenticated(false);
-              setCurrentUser('');
-              localStorage.removeItem('routine_auth');
-              localStorage.removeItem('routine_user');
-            }} style={{
-              background: 'rgba(239, 68, 68, 0.12)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.25)',
-              padding: '7px 10px', borderRadius: '14px', fontSize: '0.85rem', fontWeight: '800'
-            }}>🚪</button>
-          </div>
-        </div>
-
-        <div className="header-action-grid">
-          <button className="nav-btn calendar active" onClick={closeCalendar}>📝 일정등록</button>
-          <button className="nav-btn room" onClick={() => { setShowMyPage(false); setShowSuccessRoom(true); }}>🏛️ 성공의 방</button>
-          <button className="nav-btn my" onClick={() => { setShowSuccessRoom(false); setShowMyPage(true); }}>👤 MY</button>
-        </div>
-      </div>
-
-      <div style={{ padding: '15px 14px' }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px',
-          border: '1px solid rgba(255,255,255,0.06)', marginBottom: '12px'
-        }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="nav-arrow" style={{ width: '34px', height: '34px', borderRadius: '10px' }} onClick={() => viewMode === 'week' ? moveWeek(-1) : moveMonth(-1)}>◀</button>
-            <button className="nav-today-btn" style={{ padding: '0 12px', height: '34px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }} onClick={resetToToday}>오늘</button>
-            <button className="nav-arrow" style={{ width: '34px', height: '34px', borderRadius: '10px' }} onClick={() => viewMode === 'week' ? moveWeek(1) : moveMonth(1)}>▶</button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={() => setFilterMode('all')} style={{
-              padding: '5px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800',
-              background: filterMode === 'all' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255,255,255,0.05)',
-              border: filterMode === 'all' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid rgba(255,255,255,0.1)',
-              color: filterMode === 'all' ? '#fff' : '#94a3b8', cursor: 'pointer'
-            }}>전체</button>
-            <button onClick={() => setFilterMode('incomplete')} style={{
-              padding: '5px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800',
-              background: filterMode === 'incomplete' ? 'rgba(251, 191, 36, 0.3)' : 'rgba(255,255,255,0.05)',
-              border: filterMode === 'incomplete' ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(255,255,255,0.1)',
-              color: filterMode === 'incomplete' ? '#fff' : '#94a3b8', cursor: 'pointer'
-            }}>미완료</button>
-            <button onClick={() => setFilterMode('completed')} style={{
-              padding: '5px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800',
-              background: filterMode === 'completed' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255,255,255,0.05)',
-              border: filterMode === 'completed' ? '1px solid rgba(34, 197, 94, 0.5)' : '1px solid rgba(255,255,255,0.1)',
-              color: filterMode === 'completed' ? '#fff' : '#94a3b8', cursor: 'pointer'
-            }}>완료</button>
-          </div>
-        </div>
-        <div style={{ marginBottom: '10px', textAlign: 'center' }}>
-          <span className="header-title-mobile" style={{ fontWeight: '900', fontSize: '0.95rem', color: '#fff', letterSpacing: '-0.5px' }}>{currentHeader}</span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {displayDays.map(({ dayIndex, date, dateStr }) => {
-            const dayTodos = getScheduleTodosByDay(dayIndex, dateStr);
-            const isToday = dateStr === todayStr;
-            const color = dayColors[dayIndex];
-            const month = date.getMonth() + 1;
-            const day = date.getDate();
-
-            return (
-              <div
-                key={dateStr}
-                id={isToday ? 'calendar-today' : undefined}
-                className="day-card-premium"
-                style={{
-                  borderRadius: '18px',
-                  background: isToday ? 'rgba(99, 102, 241, 0.05)' : 'rgba(255,255,255,0.015)',
-                  border: isToday ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(255,255,255,0.05)',
-                  overflow: 'hidden',
-                  boxShadow: isToday ? '0 12px 35px rgba(0,0,0,0.3)' : 'none'
-                }}
-              >
-                <div className="day-header-premium" style={{
-                  display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px',
-                  background: isToday ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.03)',
-                  borderBottom: dayTodos.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none'
-                }}>
-                  <span style={{ width: '30px', height: '30px', borderRadius: '10px', background: isToday ? color : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: '900', color: isToday ? '#fff' : color, flexShrink: 0 }}>
-                    {dayNames[dayIndex]}
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span className="date-text" style={{ color: isToday ? '#fff' : '#cbd5e1', fontSize: '0.9rem', fontWeight: '800' }}>
-                      {month}월 {day}일
-                      {isToday && <span style={{ marginLeft: '8px', fontSize: '0.65rem', background: '#6366f1', color: '#fff', padding: '2px 8px', borderRadius: '20px', verticalAlign: 'middle', fontWeight: '900' }}>TODAY</span>}
-                    </span>
-                  </div>
-                  <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#64748b', fontWeight: '700' }}>{dayTodos.length}개</span>
-                </div>
-
-                {dayTodos.length > 0 && (
-                  <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
-
-                    {dayTodos.map(todo => (
-                      <div
-                        key={todo.id}
-                        className="todo-item-premium"
-                        onClick={() => { closeCalendar(); startEdit(todo); }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '10px',
-                          padding: '10px 14px', borderRadius: '12px',
-                          background: todo.completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255,255,255,0.02)',
-                          borderLeft: `5px solid ${todo.completed ? '#22c55e' : color}`,
-                          cursor: 'pointer', transition: 'all 0.2s',
-                          border: '1px solid rgba(255,255,255,0.01)',
-                          opacity: todo.completed ? 0.7 : 1
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = todo.completed ? 'rgba(34, 197, 94, 0.12)' : 'rgba(255,255,255,0.05)'; e.currentTarget.style.transform = 'translateX(5px)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = todo.completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255,255,255,0.02)'; e.currentTarget.style.transform = 'translateX(0)'; }}
-                      >
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleTodo(todo, dateStr);
-                          }}
-                          style={{
-                            width: '20px', height: '20px', minWidth: '20px',
-                            borderRadius: '5px',
-                            border: `2px solid ${completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : color}`,
-                            background: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : 'transparent',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', transition: 'all 0.2s',
-                            flexShrink: 0
-                          }}
-                        >
-                          {completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) && <span style={{ color: '#fff', fontSize: '0.75rem', fontWeight: '900' }}>✓</span>}
-                        </div>
-                        <span style={{ fontSize: '0.75rem', color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : color, fontWeight: '900', minWidth: '60px' }}>{formatTime(todo.time)}</span>
-                        <span style={{ fontSize: '0.9rem', color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : '#f1f5f9', flex: 1, fontWeight: '600', textDecoration: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? 'line-through' : 'none' }}>{todo.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 
 function App() {
+  const { 
+    currentUser, setCurrentUser, isAuthenticated, setIsAuthenticated, 
+    userAvatar, setUserAvatar, userPoints, setUserPoints, ownedItems, setOwnedItems,
+    fetchProfile, logout 
+  } = useAuth();
+
+  const { 
+    todos, setTodos, completions, setCompletions, heatmapData, affirmations, setAffirmations,
+    fetchTodos, fetchHeatmapData, fetchAffirmations,
+    lastAddedId, setLastAddedId, togglingIds, updateTogglingIds
+  } = useTodos(currentUser, isAuthenticated);
+
+  const { showInstallBtn, handleInstallClick } = usePWA();
+  const { voices, speakText, playAlarmSound } = useAlarm();
+  const { subscribeUserToPush } = useNotifications();
+
   // 현재 시간 기준 기본값 계산 함수
   const getDefaultTime = () => {
     const now = new Date();
@@ -808,49 +114,7 @@ function App() {
   };
 
   const defaultT = getDefaultTime();
-  // PWA 설치 프로프트 관련 state
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showInstallBtn, setShowInstallBtn] = useState(false);
 
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e) => {
-      // 브라우저의 기본 설치 프로프트를 방지
-      e.preventDefault();
-      // 이벤트를 나중에 사용할 수 있도록 저장
-      setDeferredPrompt(e);
-      // 설치 버튼 표시
-      setShowInstallBtn(true);
-      console.log('beforeinstallprompt event saved');
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // 이미 설치된 경우 처리
-    window.addEventListener('appinstalled', (evt) => {
-      console.log('App was installed');
-      setDeferredPrompt(null);
-      setShowInstallBtn(false);
-    });
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    // 저장된 이벤트를 사용하여 설치 프로프트 실행
-    deferredPrompt.prompt();
-    // 사용자의 선택 결과 확인
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response to the install prompt: ${outcome}`);
-    // 결과에 상관없이 초기화
-    setDeferredPrompt(null);
-    setShowInstallBtn(false);
-  };
-
-  const [todos, setTodos] = useState([])
-  const [lastAddedId, setLastAddedId] = useState(null) // [남개발 부장] 방금 추가된 항목을 추적하기 위한 센서!
   const [inputValue, setInputValue] = useState('')
   const [ampm, setAmpm] = useState(defaultT.ampm)
   const [hour, setHour] = useState(defaultT.hour)
@@ -864,7 +128,6 @@ function App() {
   const [prevIsSchedule, setPrevIsSchedule] = useState(null) // 이전 입력값의 일정 여부 추적용
   const [allCandidates, setAllCandidates] = useState([]) // 주간 관리자용 전체 후보 리스트
   const [weeklySelectedIds, setWeeklySelectedIds] = useState(new Set()) // 주간 관리자 선택 IDs
-  const [completions, setCompletions] = useState([]) // [남개발 팀장] 날짜별 완료 기록 저장소 [{todo_id, date}]
 
   // [남개발 부장] 기간 선택 캘린더 엔진용 센서 장착!
   const [showCalendar, setShowCalendar] = useState(false); // 달력 노출 여부
@@ -872,8 +135,6 @@ function App() {
   const [rangeStart, setRangeStart] = useState(todayStr);   // 시작일
   const [rangeEnd, setRangeEnd] = useState(todayStr);       // 종료일
 
-  // [남개발 부장] 히트맵 데이터 상태 (Idea 2)
-  const [heatmapData, setHeatmapData] = useState([]);
 
 
   // [남개발 팀장] 지능형 모드 감지 엔진 (대표님 지시: 기본=일정, 루틴/메모는 키워드 필수)
@@ -976,13 +237,6 @@ function App() {
     localStorage.setItem('alarmSound', alarmSound);
   }, [alarmSound]);
 
-  // [남개발 부장] 계정 정보는 최상단에서 먼저 초기화하여 다른 설정들이 이를 참고하게 함
-  const [currentUser, setCurrentUser] = useState(() => {
-    return localStorage.getItem('routine_user') || '';
-  });
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('routine_auth') === 'true';
-  });
 
   const [loginId, setLoginId] = useState('');
   const [loginPw, setLoginPw] = useState('');
@@ -1009,28 +263,6 @@ function App() {
     }
   });
   const [selectedVoiceName, setSelectedVoiceName] = useState(localStorage.getItem('selectedVoiceName') || '');
-  const [voices, setVoices] = useState([]);
-
-  useEffect(() => {
-    if (!window.speechSynthesis) return;
-    const updateVoices = () => {
-      try {
-        setVoices(window.speechSynthesis.getVoices());
-      } catch (e) { console.error("Voice load fail", e); }
-    };
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = updateVoices;
-    }
-    updateVoices();
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('useVoiceAlarm', useVoiceAlarm);
-  }, [useVoiceAlarm]);
-
-  useEffect(() => {
-    localStorage.setItem('selectedVoiceName', selectedVoiceName);
-  }, [selectedVoiceName]);
 
   const [pendingAlerts, setPendingAlerts] = useState([])
   const currentAlert = pendingAlerts.length > 0 ? pendingAlerts[0] : null;
@@ -1057,7 +289,6 @@ function App() {
     };
     localStorage.setItem('notifiedIds', JSON.stringify(data));
   }, [notifiedIds]);
-  const [affirmations, setAffirmations] = useState([])
   const [affirmationInput, setAffirmationInput] = useState('')
   const [showAffirmations, setShowAffirmations] = useState(false)
   const [affirmationTypeTab, setAffirmationTypeTab] = useState('positive')
@@ -1076,19 +307,7 @@ function App() {
   const [confirmNewPw, setConfirmNewPw] = useState('');
   const [pwMessage, setPwMessage] = useState('');
   const [pwError, setPwError] = useState('');
-  const [userAvatar, setUserAvatar] = useState(localStorage.getItem('routine_avatar') || '😊');
-  const [userPoints, setUserPoints] = useState(0);
-  const [togglingIds, setTogglingIds] = useState(new Set()); // 토글 로딩 상태 추적
-  const togglingIdsRef = useRef(new Set()); // 클로저 문제 해결을 위한 ref
 
-  // 상태와 Ref를 동기화
-  const updateTogglingIds = (updater) => {
-    setTogglingIds(prev => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      togglingIdsRef.current = next;
-      return next;
-    });
-  };
 
   const [historySearchTerm, setHistorySearchTerm] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -1128,7 +347,6 @@ function App() {
 
   const [isListening, setIsListening] = useState(false); // 음성 인식 상태
   const [showSuccessRoom, setShowSuccessRoom] = useState(false); // 성공의 방 모달
-  const [ownedItems, setOwnedItems] = useState([]); // 보유한 아이템 리스트
 
   const todosRef = useRef([]);
   useEffect(() => { todosRef.current = todos; }, [todos]);
@@ -1232,37 +450,11 @@ function App() {
     setShowCalendar(true);
   };
 
-  const fetchTodos = async () => {
-    if (!currentUser) return;
-    const sanitizedUser = currentUser.split('=')[0];
-    try {
-      const res = await fetch(`${API_URL}?username=${sanitizedUser}`);
-      const data = await res.json();
-
-      // [남개발 팀장] 날짜별 완료 기록도 함께 호출
-      const compRes = await fetch(`${API_URL_COMPLETIONS}?username=${sanitizedUser}`);
-      if (compRes.ok) {
-        const compData = await compRes.json();
-        setCompletions(compData);
-      }
-
-      // 현재 작업 중인(togglingIdsRef) 항목은 서버 데이터로 덮어쓰지 않고 로컬 상태 유지
-      setTodos(prev => {
-        return data.map(item => {
-          if (togglingIdsRef.current.has(String(item.id))) {
-            const existing = prev.find(p => String(p.id) === String(item.id));
-            return existing ? existing : item;
-          }
-          return item;
-        });
-      });
-    } catch (e) { console.error("Fetch failed", e); }
-  };
 
   const fetchAllCandidates = async () => {
     if (!currentUser) return;
     try {
-      const res = await fetch(`${API_URL}?username=${currentUser}&includeInactive=true`);
+      const res = await fetch(`${API_URLS.TODOS}?username=${currentUser}&includeInactive=true`);
       const data = await res.json();
       // 일정과 메모만 후보로 추출
       const candidates = data.filter(t => t.scheduleMode !== 'routine');
@@ -1277,7 +469,7 @@ function App() {
   const handleActivateWeekly = async () => {
     try {
       const ids = Array.from(weeklySelectedIds);
-      const res = await fetch(`${API_BASE}/api/todos/activate-weekly`, {
+      const res = await fetch(API_URLS.ACTIVATE_WEEKLY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1293,39 +485,6 @@ function App() {
     } catch (e) { console.error("Activation failed", e); }
   };
 
-  const fetchProfile = async () => {
-    if (!currentUser) return;
-    const sanitizedUser = currentUser.split('=')[0];
-    try {
-      const resp = await fetch(`${API_BASE}/api/profile?username=${sanitizedUser}`);
-      if (!resp.ok) return;
-      const data = await resp.json();
-      setUserAvatar(data.avatar || '😊');
-      setUserPoints(data.points || 0);
-
-      // 보유 아이템도 같이 가져오기
-      const itemResp = await fetch(`${API_BASE}/api/user-items?username=${currentUser}`);
-      if (itemResp.ok) {
-        setOwnedItems(await itemResp.json());
-      }
-
-      // [남개발 부장] 히트맵 데이터도 함께 로드
-      fetchHeatmapData();
-    } catch (e) {
-      console.error("Profile fetch failed", e);
-    }
-  };
-
-  const fetchHeatmapData = async () => {
-    if (!currentUser) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/stats/heatmap?username=${currentUser}`);
-      if (res.ok) {
-        const data = await res.json();
-        setHeatmapData(data);
-      }
-    } catch (e) { console.error("Heatmap fetch failed", e); }
-  };
 
   const handlePurchaseItem = async (item) => {
     if (userPoints < item.cost) {
@@ -1340,7 +499,7 @@ function App() {
     if (!window.confirm(`${item.name}을(를) ${item.cost}P에 구매하시겠습니까?`)) return;
 
     try {
-      const resp = await fetch(`${API_BASE}/api/purchase-item`, {
+      const resp = await fetch(API_URLS.PURCHASE_ITEM, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: currentUser, itemId: item.id, cost: item.cost })
@@ -1362,7 +521,7 @@ function App() {
     if (!window.confirm("성공의 방에 전시된 모든 아이템을 비우시겠습니까?\n(구매한 아이템은 삭제되지만 포인트는 환불되지 않습니다.)")) return;
 
     try {
-      const resp = await fetch(`${API_BASE}/api/user-items/reset?username=${currentUser}`, {
+      const resp = await fetch(`${API_URLS.USER_ITEMS_RESET}?username=${currentUser}`, {
         method: 'DELETE'
       });
       if (resp.ok) {
@@ -1374,13 +533,6 @@ function App() {
     }
   };
 
-  const fetchAffirmations = async () => {
-    try {
-      const res = await fetch(`${AFFIRMATIONS_API_URL}?username=${currentUser}`);
-      const data = await res.json();
-      setAffirmations(data);
-    } catch (e) { console.error("Fetch affirmations failed", e); }
-  };
 
 
   const handleChangePassword = async () => {
@@ -1389,7 +541,7 @@ function App() {
     if (newPw.length < 4) { setPwError('새 비밀번호는 4자리 이상이어야 합니다.'); return; }
     if (newPw !== confirmNewPw) { setPwError('새 비밀번호가 일치하지 않습니다.'); return; }
     try {
-      const res = await fetch(CHANGE_PW_API_URL, {
+      const res = await fetch(API_URLS.CHANGE_PW, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: currentUser, currentPassword: currentPw, newPassword: newPw })
       });
@@ -1407,79 +559,13 @@ function App() {
     setUserAvatar(emoji);
     localStorage.setItem('routine_avatar', emoji);
     try {
-      await fetch(UPDATE_PROFILE_API_URL, {
+      await fetch(API_URLS.UPDATE_PROFILE, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: currentUser, avatar: emoji })
       });
     } catch (e) { console.error('Avatar update failed', e); }
   };
 
-  const urlBase64ToUint8Array = (base64String) => {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-  };
-
-  const subscribeUserToPush = async (username) => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      console.log('Push notifications are not supported in this browser.');
-      return;
-    }
-
-    try {
-      // [남개발 부장] 모바일/구형 브라우저 호환성을 위한 하이브리드 권한 요청
-      if (!window.Notification || !window.Notification.requestPermission) {
-        console.warn('Notification API not available.');
-        return;
-      }
-
-      let permission;
-      try {
-        // 우선 Promise 방식 시도
-        const promiseRes = window.Notification.requestPermission();
-        if (promiseRes && promiseRes.then) {
-          permission = await promiseRes;
-        } else {
-          // 콜백 방식 대응 (일부 모바일 사파리 등)
-          permission = await new Promise((resolve) => {
-            window.Notification.requestPermission(resolve);
-          });
-        }
-      } catch (e) {
-        console.error("Permission request error", e);
-        return;
-      }
-
-      if (permission !== 'granted') {
-        console.log('Notification permission denied.');
-        return;
-      }
-
-      const registration = await navigator.serviceWorker.ready;
-      const subscribeOptions = {
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array('BHQBElHGuk1fdr1WwVk0fcc2KbUBVS9L-tRysmha6cLuUGLFUF3g7SoINdxeWDzhcyCgOOLdyG7iRj2WcZO9Qew')
-      };
-
-      const subscription = await registration.pushManager.subscribe(subscribeOptions);
-      console.log('Push Subscribed:', subscription);
-
-      await fetch(`${API_BASE}/api/push-subscribe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, subscription })
-      });
-    } catch (err) {
-      console.error('Push Subscription failed:', err);
-    }
-  };
 
   useEffect(() => {
     if (!isAuthenticated) return;
