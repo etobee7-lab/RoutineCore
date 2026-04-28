@@ -2654,11 +2654,11 @@ function App() {
                 return isScheduledToday;
               }
 
-              // 일정/메모: 날짜 범위 기반 (기간 내 매일 표시)
-              const shouldShowByDate = isScheduledToday && isInDateRange;
+              // 일정/메모: 날짜 범위 기반 (기간 내 매일 표시, 요일 무시)
+              const shouldShowByDate = isInDateRange;
 
               if (listFilter === 'all') {
-                return shouldShowByDate;
+                return mode === 'routine' ? isScheduledToday : shouldShowByDate;
               } else if (listFilter === 'routine') {
                 return mode === 'routine' && isScheduledToday;
               } else if (listFilter === 'schedule') {
