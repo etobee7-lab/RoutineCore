@@ -77,7 +77,7 @@ function App() {
   const { 
     currentUser, setCurrentUser, isAuthenticated, setIsAuthenticated, 
     userAvatar, setUserAvatar, userPoints, setUserPoints, ownedItems, setOwnedItems,
-    fetchProfile, logout 
+    fetchProfile, login, register, logout 
   } = useAuth();
 
   const { 
@@ -351,6 +351,8 @@ function App() {
   const todosRef = useRef([]);
   useEffect(() => { todosRef.current = todos; }, [todos]);
 
+
+
   // [남개발 부장] 신규 추가 시 자동 스크롤 추적 시스템
   useEffect(() => {
     if (lastAddedId) {
@@ -454,8 +456,7 @@ function App() {
   const fetchAllCandidates = async () => {
     if (!currentUser) return;
     try {
-      const res = await fetch(`${API_URLS.TODOS}?username=${currentUser}&includeInactive=true`);
-      const data = await res.json();
+      const data = await fetchAPI(`${API_URLS.TODOS}?username=${currentUser}&includeInactive=true`);
       // 일정과 메모만 후보로 추출
       const candidates = data.filter(t => t.scheduleMode !== 'routine');
       setAllCandidates(candidates);
@@ -469,20 +470,20 @@ function App() {
   const handleActivateWeekly = async () => {
     try {
       const ids = Array.from(weeklySelectedIds);
-      const res = await fetch(API_URLS.ACTIVATE_WEEKLY, {
+      await fetchAPI(API_URLS.ACTIVATE_WEEKLY, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: currentUser,
           ids,
           weekStr: getWeekStr()
         })
       });
-      if (res.ok) {
-        alert("이번 주 전술 지도가 성공적으로 배포되었습니다! 🛡️");
-        fetchTodos();
-      }
-    } catch (e) { console.error("Activation failed", e); }
+      alert("이번 주 전술 지도가 성공적으로 배포되었습니다! 🛡️");
+      fetchTodos();
+    } catch (e) { 
+      console.error("Activation failed", e);
+      alert(e.message || "배포에 실패했습니다.");
+    }
   };
 
 
@@ -499,21 +500,16 @@ function App() {
     if (!window.confirm(`${item.name}을(를) ${item.cost}P에 구매하시겠습니까?`)) return;
 
     try {
-      const resp = await fetch(API_URLS.PURCHASE_ITEM, {
+      const data = await fetchAPI(API_URLS.PURCHASE_ITEM, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: currentUser, itemId: item.id, cost: item.cost })
       });
-      const data = await resp.json();
-      if (resp.ok) {
-        setOwnedItems(prev => [...prev, item.id]);
-        setUserPoints(data.newPoints);
-        alert("구매 완료! 성공의 방에 전시되었습니다.");
-      } else {
-        alert(data.error || "구매 도중 오류가 발생했습니다.");
-      }
+      setOwnedItems(prev => [...prev, item.id]);
+      setUserPoints(data.newPoints);
+      alert("구매 완료! 성공의 방에 전시되었습니다.");
     } catch (e) {
       console.error("Purchase failed", e);
+      alert(e.message || "구매 도중 오류가 발생했습니다.");
     }
   };
 
@@ -521,15 +517,14 @@ function App() {
     if (!window.confirm("성공의 방에 전시된 모든 아이템을 비우시겠습니까?\n(구매한 아이템은 삭제되지만 포인트는 환불되지 않습니다.)")) return;
 
     try {
-      const resp = await fetch(`${API_URLS.USER_ITEMS_RESET}?username=${currentUser}`, {
+      await fetchAPI(`${API_URLS.USER_ITEMS_RESET}?username=${currentUser}`, {
         method: 'DELETE'
       });
-      if (resp.ok) {
-        setOwnedItems([]);
-        alert("방이 초기화되었습니다. 다시 멋지게 꾸며보세요!");
-      }
+      setOwnedItems([]);
+      alert("방이 초기화되었습니다. 다시 멋지게 꾸며보세요!");
     } catch (e) {
       console.error("Reset failed", e);
+      alert(e.message || "초기화 도중 오류가 발생했습니다.");
     }
   };
 
@@ -541,26 +536,23 @@ function App() {
     if (newPw.length < 4) { setPwError('새 비밀번호는 4자리 이상이어야 합니다.'); return; }
     if (newPw !== confirmNewPw) { setPwError('새 비밀번호가 일치하지 않습니다.'); return; }
     try {
-      const res = await fetch(API_URLS.CHANGE_PW, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      await fetchAPI(API_URLS.CHANGE_PW, {
+        method: 'POST',
         body: JSON.stringify({ username: currentUser, currentPassword: currentPw, newPassword: newPw })
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setPwMessage('비밀번호가 변경되었습니다! ✅');
-        setCurrentPw(''); setNewPw(''); setConfirmNewPw('');
-      } else {
-        setPwError(data.error || '변경에 실패했습니다.');
-      }
-    } catch (e) { setPwError('서버에 연결할 수 없습니다.'); }
+      setPwMessage('비밀번호가 변경되었습니다! ✅');
+      setCurrentPw(''); setNewPw(''); setConfirmNewPw('');
+    } catch (e) { 
+      setPwError(e.message || '변경에 실패했습니다.');
+    }
   };
 
   const handleSelectAvatar = async (emoji) => {
     setUserAvatar(emoji);
     localStorage.setItem('routine_avatar', emoji);
     try {
-      await fetch(API_URLS.UPDATE_PROFILE, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      await fetchAPI(API_URLS.UPDATE_PROFILE, {
+        method: 'POST',
         body: JSON.stringify({ username: currentUser, avatar: emoji })
       });
     } catch (e) { console.error('Avatar update failed', e); }
@@ -579,7 +571,6 @@ function App() {
     // [남개발 부장] 모바일/보안 규정 준수: 자동 푸시 요청 차단 (반드시 사용자 클릭 시에만 수행)
     // subscribeUserToPush(currentUser);
 
-    // 서비스 워커로부터의 메시지 수신 (알림 버튼 클릭 시 상태 갱신)
     const handleMessage = (event) => {
       if (event.data && event.data.type === 'REFRESH_TODOS') {
         fetchTodos();
@@ -587,12 +578,7 @@ function App() {
     };
     navigator.serviceWorker.addEventListener('message', handleMessage);
 
-    const interval = setInterval(() => {
-      fetchTodos();
-      fetchAffirmations();
-    }, 3000);
     return () => {
-      clearInterval(interval);
       navigator.serviceWorker.removeEventListener('message', handleMessage);
     };
   }, [isAuthenticated, currentUser]);
@@ -777,9 +763,8 @@ function App() {
         if (diffMinutes >= 5) {
           const latestTodo = todosRef.current.find(t => t.id === currentAlert.todo.id);
           if (latestTodo && !latestTodo.completed && !latestTodo.isFailed) {
-            fetch(`${API_URL}/${latestTodo.id}`, {
+            fetchAPI(`${API_URLS.TODOS}/${latestTodo.id}`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ isFailed: true })
             }).then(() => {
               fetchTodos();
@@ -886,6 +871,7 @@ function App() {
     setHour(nextT.hour);
     setMinute(nextT.minute);
     setScheduleMode('schedule');
+    setEditingId(null); // [남개발 팀장] 편집 상태도 함께 초기화
     setPrevIsSchedule(null);
     setRangeStart(todayStr);
     setRangeEnd(todayStr);
@@ -990,8 +976,7 @@ function App() {
         endDate: isMemoMode ? null : rangeEnd
       };
       
-      const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTodo) });
-      if (!res.ok) throw new Error("서버 저장 실패");
+      await fetchAPI(API_URLS.TODOS, { method: 'POST', body: JSON.stringify(newTodo) });
 
       if (isMemoMode) {
         alert(`📝 [메모] ${cleaned}\n메모가 저장되었습니다! ✅`);
@@ -1005,7 +990,7 @@ function App() {
       fetchTodos();
     } catch (e) {
       console.error("Add failed", e);
-      alert("등록 중 오류가 발생했습니다.");
+      alert(`등록 중 오류가 발생했습니다: ${e.message}`);
     }
   };
 
@@ -1045,23 +1030,27 @@ function App() {
   const saveEdit = async (id) => {
     try {
       if (editDays.length === 0) {
-        await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+        await fetchAPI(`${API_URLS.TODOS}/${id}`, { method: 'DELETE' });
       } else {
         let h = parseInt(editHour);
         if (editAmpm === '오후' && h !== 12) h += 12;
         if (editAmpm === '오전' && h === 12) h = 0;
         const formattedTime = `${String(h).padStart(2, '0')}:${editMinute}`;
 
-        await fetch(`${API_URL}/${id}`, {
+        // [남개발 부장] 수정 시 대상 항목을 찾기 위해 scheduleMode를 포함하여 전송 (서버 최적화)
+        const todoToUpdate = todos.find(t => String(t.id) === String(id));
+        const mode = todoToUpdate ? todoToUpdate.scheduleMode : null;
+
+        await fetchAPI(`${API_URLS.TODOS}/${id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: editValue,
-            time: formattedTime, // 수정된 시간 반영
+            time: formattedTime,
             days: editDays.join(','),
             excludeHolidays: editExcludeHolidays,
             startDate: rangeStart,
-            endDate: rangeEnd
+            endDate: rangeEnd,
+            scheduleMode: mode // 추가
           })
         });
 
@@ -1075,6 +1064,7 @@ function App() {
       setEditingId(null);
     } catch (e) {
       console.error("Save failed", e);
+      alert(`수정에 실패했습니다: ${e.message}`);
     }
     fetchTodos();
   };
@@ -1082,9 +1072,8 @@ function App() {
   const dismissAlertGlobally = async (todoId) => {
     const today = new Date().toLocaleDateString();
     try {
-      await fetch(`${API_URL}/${todoId}`, {
+      await fetchAPI(`${API_URLS.TODOS}/${todoId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lastNotifiedDate: today })
       });
       fetchTodos();
@@ -1123,27 +1112,22 @@ function App() {
     togglingIdsRef.current.add(todoIdStr);
 
     try {
-      const response = await fetch(`${API_URL_COMPLETIONS}/toggle`, {
+      await fetchAPI(`${API_URLS.COMPLETIONS}/toggle`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ todo_id: todo.id, date: dateStr, username: currentUser.split('=')[0] })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        alert(errorData.error || "변경 사항 저장 실패");
-        // 롤백
-        if (isAlreadyDone) {
-          setCompletions(prev => [...prev, { todo_id: todo.id, date: dateStr }]);
-        } else {
-          setCompletions(prev => prev.filter(c => !(String(c.todo_id) === todoIdStr && c.date === dateStr)));
-        }
-        if (dateStr === todayLimit) {
-          setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: isAlreadyDone } : t));
-        }
-      }
     } catch (e) {
       console.error("Toggle error:", e);
+      alert(e.message || "변경 사항 저장 실패");
+      // 롤백
+      if (isAlreadyDone) {
+        setCompletions(prev => [...prev, { todo_id: todo.id, date: dateStr }]);
+      } else {
+        setCompletions(prev => prev.filter(c => !(String(c.todo_id) === todoIdStr && c.date === dateStr)));
+      }
+      if (dateStr === todayLimit) {
+        setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: isAlreadyDone } : t));
+      }
     } finally {
       togglingIdsRef.current.delete(todoIdStr);
     }
@@ -1152,9 +1136,8 @@ function App() {
   const addAffirmation = async () => {
     if (!affirmationInput.trim()) return;
     try {
-      await fetch(AFFIRMATIONS_API_URL, {
+      await fetchAPI(API_URLS.AFFIRMATIONS, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: affirmationInput, type: affirmationTypeTab, username: currentUser })
       });
       setAffirmationInput('');
@@ -1166,7 +1149,7 @@ function App() {
 
   const deleteAffirmation = async (id) => {
     try {
-      await fetch(`${AFFIRMATIONS_API_URL}/${id}`, { method: 'DELETE' });
+      await fetchAPI(`${API_URLS.AFFIRMATIONS}/${id}`, { method: 'DELETE' });
       fetchAffirmations();
     } catch (e) {
       console.error("Delete affirmation failed", e);
@@ -1190,13 +1173,10 @@ function App() {
     setTodos(prev => prev.map(t => String(t.id) === todoIdStr ? { ...t, completed: true, isFailed: false } : t));
 
     try {
-      const resp = await fetch(`${API_URL}/${todoId}`, {
+      await fetchAPI(`${API_URLS.TODOS}/${todoId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed: true, isFailed: false, lastNotifiedDate: today, scheduleMode: alert.todo.scheduleMode })
       });
-
-      if (!resp.ok) { const errText = await resp.text(); throw new Error(`Server update failed: ${errText}`); }
 
       // 3초 후 락 해제 및 최신화
       setTimeout(() => {
@@ -1231,13 +1211,10 @@ function App() {
     setTodos(prev => prev.map(t => String(t.id) === todoIdStr ? { ...t, completed: false, isFailed: true } : t));
 
     try {
-      const resp = await fetch(`${API_URL}/${todoId}`, {
+      await fetchAPI(`${API_URLS.TODOS}/${todoId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed: false, isFailed: true, lastNotifiedDate: today, scheduleMode: alert.todo.scheduleMode })
       });
-
-      if (!resp.ok) { const errText = await resp.text(); throw new Error(`Server update failed: ${errText}`); }
 
       speakText(`${alert.todo.text} 일정이 쉬어감으로 변경되었습니다.`);
 
@@ -1258,13 +1235,9 @@ function App() {
   const handleAdminDeleteTodo = async (id, text) => {
     if (!window.confirm(`'${text}' 항목을 정말로 삭제하시겠습니까?`)) return;
     try {
-      const resp = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-      if (resp.ok) {
-        setTodos(prev => prev.filter(t => t.id !== id));
-        alert("삭제되었습니다.");
-      } else {
-        alert("삭제에 실패했습니다.");
-      }
+      await fetchAPI(`${API_URLS.TODOS}/${id}`, { method: 'DELETE' });
+      setTodos(prev => prev.filter(t => t.id !== id));
+      alert("삭제되었습니다.");
     } catch (e) {
       console.error("Delete todo failed", e);
       alert("삭제 중 오류가 발생했습니다.");
@@ -1275,9 +1248,8 @@ function App() {
     if (!window.confirm(`'${todo.text}' 항목을 오늘 일정으로 다시 활용하시겠습니까?`)) return;
     try {
       const today = Date.now();
-      await fetch(`${API_URL}/${todo.id}`, {
+      await fetchAPI(`${API_URLS.TODOS}/${todo.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           createdAt: today,
           completed: false,
@@ -1295,9 +1267,8 @@ function App() {
   const updateAffirmation = async (id) => {
     if (!editingAffirmationValue.trim()) return;
     try {
-      await fetch(`${AFFIRMATIONS_API_URL}/${id}`, {
+      await fetchAPI(`${API_URLS.AFFIRMATIONS}/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: editingAffirmationValue })
       });
       setEditingAffirmationId(null);
@@ -1327,10 +1298,8 @@ function App() {
   const handleSpecificExport = async (type, label) => {
     console.log(`[DEBUG] Exporting: ${type}`);
     try {
-      const url = `${ADMIN_EXPORT_API_URL}?username=${currentUser}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("관리자 권한이 필요합니다.");
-      const resData = await res.json();
+      const url = `${API_URLS.ADMIN_EXPORT}?username=${currentUser}`;
+      const resData = await fetchAPI(url);
       const { data } = resData;
 
       const wb = XLSX.utils.book_new();
@@ -1384,19 +1353,13 @@ function App() {
           }
         };
 
-        const res = await fetch(ADMIN_IMPORT_API_URL, {
+        await fetchAPI(API_URLS.ADMIN_IMPORT, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: currentUser, importData: importPayload })
         });
 
-        if (res.ok) {
-          alert("데이터가 성공적으로 복구되었습니다!");
-          window.location.reload();
-        } else {
-          const errorResult = await res.json();
-          alert(errorResult.error || "가져오기 실패");
-        }
+        alert("데이터가 성공적으로 복구되었습니다!");
+        window.location.reload();
       } catch (err) { alert("가져오기 중 오류 발생: " + err.message); }
       event.target.value = '';
     };
@@ -1408,37 +1371,19 @@ function App() {
 
   const handleLogin = async () => {
     setLoginError('');
-    setLoginSuccess('');
     if (!loginId || !loginPw) {
       setLoginError('아이디와 비밀번호를 입력해주세요.');
       return;
     }
-    try {
-      console.log('Login attempt to:', LOGIN_API_URL);
-      const res = await fetch(LOGIN_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: loginId, password: loginPw })
-      });
-      const data = await res.json();
-      console.log('Login response:', data);
-      if (res.ok && data.success) {
-        setIsAuthenticated(true);
-        setCurrentUser(data.username);
-        localStorage.setItem('routine_auth', 'true');
-        localStorage.setItem('routine_user', data.username);
-        // 로그인 시 디폴트: 평일 선택 + 공휴일/주말 제외 체크
-        resetForm(); // [남개발 부장] 로그인 시 현재 시각 기준으로 입력 폼 전체 동기화
-        setListFilter('schedule');
-        setScheduleMode('schedule'); // [남개발 팀장] 로그인 시에도 기본은 일정🛡️
-        setShowScheduleCalendar(true); // [남개발 팀장] 로그인 성공 즉시 캘린더 대시보드로 이동
-        subscribeUserToPush(data.username);
-      } else {
-        setLoginError(data.error || '로그인에 실패했습니다.');
-      }
-    } catch (e) {
-      console.error('Login error:', e);
-      setLoginError('서버에 연결할 수 없습니다. 백엔드 URL을 확인해주세요.');
+    const result = await login(loginId, loginPw);
+    if (result.success) {
+      resetForm();
+      setListFilter('schedule');
+      setScheduleMode('schedule');
+      setShowScheduleCalendar(true);
+      subscribeUserToPush(loginId);
+    } else {
+      setLoginError(result.error);
     }
   };
 
@@ -1461,24 +1406,15 @@ function App() {
       setLoginError('비밀번호가 일치하지 않습니다.');
       return;
     }
-    try {
-      const res = await fetch(REGISTER_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: loginId, password: loginPw, name: signUpName.trim() })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setLoginSuccess('회원가입 성공! 로그인해주세요.');
-        setIsSignUpMode(false);
-        setLoginPw('');
-        setSignUpName('');
-        setSignUpConfirmPw('');
-      } else {
-        setLoginError(data.error || '회원가입에 실패했습니다.');
-      }
-    } catch (e) {
-      setLoginError('서버에 연결할 수 없습니다.');
+    const result = await register(loginId, loginPw, signUpName.trim());
+    if (result.success) {
+      setLoginSuccess('회원가입 성공! 로그인해주세요.');
+      setIsSignUpMode(false);
+      setLoginPw('');
+      setSignUpName('');
+      setSignUpConfirmPw('');
+    } else {
+      setLoginError(result.error);
     }
   };
 
@@ -2550,9 +2486,42 @@ function App() {
             </div>
           </div>
         </div>
-
+        <div style={{ fontSize: '10px', color: '#475569', padding: '5px 20px', textAlign: 'center', background: 'rgba(0,0,0,0.3)' }}>
+          Debug: User={currentUser} | Count={todos.length}
+        </div>
         <div style={{ padding: '0 1.2rem 1.2rem' }}>
           <div className="input-group scheduler">
+            <div className="mode-toggle-group" style={{ marginBottom: '0.5rem' }}>
+              {[
+                { key: 'schedule', label: '📅 일정', color: '#3b82f6' },
+                { key: 'routine', label: '🔁 루틴', color: '#8b5cf6' },
+                { key: 'memo', label: '📝 메모', color: '#10b981' }
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  className={`mode-toggle-btn ${scheduleMode === key ? 'active' : ''}`}
+                  onClick={() => setScheduleMode(key)}
+                  style={{
+                    flex: 1,
+                    padding: '0.4rem 0.6rem',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: scheduleMode === key
+                      ? (key === 'schedule' ? 'rgba(59,130,246,0.2)' : key === 'routine' ? 'rgba(139,92,246,0.2)' : 'rgba(16,185,129,0.2)')
+                      : 'rgba(255,255,255,0.03)',
+                    color: scheduleMode === key
+                      ? (key === 'schedule' ? '#60a5fa' : key === 'routine' ? '#a78bfa' : '#34d399')
+                      : '#94a3b8',
+                    fontSize: '0.8rem',
+                    fontWeight: scheduleMode === key ? '700' : '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <div className="input-with-voice">
               <input
                 type="text"
@@ -2623,7 +2592,7 @@ function App() {
               <button className={`filter-btn ${listFilter === 'memo' ? 'active' : ''}`} onClick={() => setListFilter('memo')}>📝 메모</button>
             </div>
             <button className="sort-toggle-btn" onClick={() => setListSort(prev => prev === 'asc' ? 'desc' : 'asc')}>
-              {listSort === 'asc' ? '⏰ 오전순' : '⏰ 밤순'}
+              {listSort === 'asc' ? '⏲️ 시간순' : '⏲️ 역순'}
             </button>
           </div>
 
@@ -2636,23 +2605,29 @@ function App() {
             const filtered = todos.filter(t => {
               if (editingId === t.id) return true;
 
-              const dayList = t.days ? t.days.split(',').map(d => d.trim()) : [];
+              const dayList = t.days ? t.days.split(',').map(d => d.trim()).filter(Boolean) : [];
               const isScheduledToday = dayList.length === 0 || dayList.includes(currentDay);
-              const isSchedule = t.scheduleMode === 'schedule';
-              const isMemo = t.scheduleMode === 'memo';
-
-              const todayStr = new Date().toISOString().split('T')[0];
+              
+              const d = new Date();
+              const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
               const isInDateRange = (!t.startDate || todayStr >= t.startDate) && (!t.endDate || todayStr <= t.endDate);
-              const shouldShowByDate = isScheduledToday && isInDateRange;
+              
+              // activatedWeek가 현재 주차인 일정/메모는 날짜 범위와 무관하게 오늘 요일 기준으로만 표시
+              // → 자정 이후 endDate 초과로 사라지는 버그 방지
+              const currentWeek = getWeekStr();
+              const isActivatedThisWeek = t.activatedWeek === currentWeek;
+              const shouldShowByDate = isScheduledToday && (isActivatedThisWeek || isInDateRange);
+
+              const mode = t.scheduleMode || 'routine';
 
               if (listFilter === 'all') {
-                return (t.scheduleMode === 'routine' || !t.scheduleMode) ? isScheduledToday : shouldShowByDate;
+                return mode === 'routine' ? isScheduledToday : shouldShowByDate;
               } else if (listFilter === 'routine') {
-                return (t.scheduleMode === 'routine' || !t.scheduleMode) && isScheduledToday;
+                return mode === 'routine' && isScheduledToday;
               } else if (listFilter === 'schedule') {
-                return isSchedule && shouldShowByDate;
+                return mode === 'schedule' && shouldShowByDate;
               } else if (listFilter === 'memo') {
-                return isMemo && shouldShowByDate;
+                return mode === 'memo' && shouldShowByDate;
               }
               return false;
             });
@@ -2666,11 +2641,23 @@ function App() {
               );
             }
 
+            const todayStr = new Date().toISOString().split('T')[0];
             return [...filtered]
               .sort((a, b) => {
-                const timeA = a.time || '';
-                const timeB = b.time || '';
-                return listSort === 'asc' ? timeA.localeCompare(timeB) : timeB.localeCompare(timeA);
+                // 1. 완료 여부 (미완료 항목 우선)
+                const compA = completions.some(c => String(c.todo_id) === String(a.id) && c.date === todayStr);
+                const compB = completions.some(c => String(c.todo_id) === String(b.id) && c.date === todayStr);
+                if (compA !== compB) return compA ? 1 : -1;
+
+                // 2. 시간 순 정렬
+                const timeA = a.time || '99:99';
+                const timeB = b.time || '99:99';
+                if (timeA !== timeB) {
+                  return listSort === 'asc' ? timeA.localeCompare(timeB) : timeB.localeCompare(timeA);
+                }
+
+                // 3. 동일 시간일 경우 최신 생성순
+                return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
               })
               .map(todo => (
                 <li key={todo.id} id={`todo-${todo.id}`} className={`todo-item ${todo.completed ? 'completed' : ''} ${todo.isFailed ? 'failed' : ''} ${editingId === todo.id ? 'editing' : ''} ${lastAddedId === todo.id ? 'newly-added' : ''}`}>
@@ -2793,7 +2780,7 @@ function App() {
                                 alignItems: 'center',
                                 gap: '3px'
                               }}>
-                                ✅ 성공로딩
+                                ✅ 성공
                               </span>
                             )}
                             {togglingIds.has(String(todo.id)) && (
