@@ -123,6 +123,7 @@ function App() {
   const [excludeHolidays, setExcludeHolidays] = useState(false) // 당일 요일 중심이므로 기본 해제
   const [scheduleMode, setScheduleMode] = useState('schedule') // 'routine' | 'schedule'
   const [listFilter, setListFilter] = useState('schedule') // 'all' | 'routine' | 'schedule'
+  const [searchQuery, setSearchQuery] = useState('') // 검색어
   const [isWeeklyView, setIsWeeklyView] = useState(false) // [NAM] Weekly Board Mode
   const [listSort, setListSort] = useState('asc') // 'asc' | 'desc'
   const [prevIsSchedule, setPrevIsSchedule] = useState(null) // 이전 입력값의 일정 여부 추적용
@@ -961,7 +962,7 @@ function App() {
 
       const timestamp = Date.now();
       const finalMode = isMemoMode ? 'memo' : scheduleMode;
-      
+
       const newTodo = {
         id: timestamp,
         text: cleaned,
@@ -972,8 +973,8 @@ function App() {
         completed: false,
         createdAt: timestamp,
         username: currentUser,
-        startDate: isMemoMode ? null : rangeStart,
-        endDate: isMemoMode ? null : rangeEnd
+        startDate: (finalMode === 'routine') ? null : (isMemoMode ? null : rangeStart),
+        endDate: (finalMode === 'routine') ? null : (isMemoMode ? null : rangeEnd)
       };
       
       await fetchAPI(API_URLS.TODOS, { method: 'POST', body: JSON.stringify(newTodo) });
@@ -2594,9 +2595,33 @@ function App() {
               <button className={`filter-btn ${listFilter === 'schedule' ? 'active' : ''}`} onClick={() => setListFilter('schedule')}>📅 일정</button>
               <button className={`filter-btn ${listFilter === 'memo' ? 'active' : ''}`} onClick={() => setListFilter('memo')}>📝 메모</button>
             </div>
-            <button className="sort-toggle-btn" onClick={() => setListSort(prev => prev === 'asc' ? 'desc' : 'asc')}>
-              {listSort === 'asc' ? '⏲️ 시간순' : '⏲️ 역순'}
-            </button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="검색..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  style={{
+                    padding: '6px 12px 6px 32px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#f1f5f9',
+                    fontSize: '0.8rem',
+                    outline: 'none',
+                    width: '120px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onFocus={e => e.target.style.width = '160px'}
+                  onBlur={e => e.target.style.width = '120px'}
+                />
+                <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.9rem' }}>🔍</span>
+              </div>
+              <button className="sort-toggle-btn" onClick={() => setListSort(prev => prev === 'asc' ? 'desc' : 'asc')}>
+                {listSort === 'asc' ? '⏲️ 시간순' : '⏲️ 역순'}
+              </button>
+            </div>
           </div>
 
         {/* 일정 리스트 (오늘 요일 일정이거나, 오늘 이미 성공/알람 확인된 것만 표시) */}
@@ -2608,23 +2633,32 @@ function App() {
             const filtered = todos.filter(t => {
               if (editingId === t.id) return true;
 
+              // 검색어 필터링
+              if (searchQuery.trim()) {
+                const query = searchQuery.toLowerCase();
+                const textMatch = t.text.toLowerCase().includes(query);
+                if (!textMatch) return false;
+              }
+
               const dayList = t.days ? t.days.split(',').map(d => d.trim()).filter(Boolean) : [];
               const isScheduledToday = dayList.length === 0 || dayList.includes(currentDay);
-              
+
               const d = new Date();
               const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
               const isInDateRange = (!t.startDate || todayStr >= t.startDate) && (!t.endDate || todayStr <= t.endDate);
-              
-              // activatedWeek가 현재 주차인 일정/메모는 날짜 범위와 무관하게 오늘 요일 기준으로만 표시
-              // → 자정 이후 endDate 초과로 사라지는 버그 방지
-              const currentWeek = getWeekStr();
-              const isActivatedThisWeek = t.activatedWeek === currentWeek;
-              const shouldShowByDate = isScheduledToday && (isActivatedThisWeek || isInDateRange);
 
               const mode = t.scheduleMode || 'routine';
 
+              // 루틴: 요일 기반만 (365일 반복)
+              if (mode === 'routine') {
+                return isScheduledToday;
+              }
+
+              // 일정/메모: 날짜 범위 기반 (기간 내 매일 표시)
+              const shouldShowByDate = isScheduledToday && isInDateRange;
+
               if (listFilter === 'all') {
-                return mode === 'routine' ? isScheduledToday : shouldShowByDate;
+                return shouldShowByDate;
               } else if (listFilter === 'routine') {
                 return mode === 'routine' && isScheduledToday;
               } else if (listFilter === 'schedule') {
