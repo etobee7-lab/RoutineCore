@@ -2528,7 +2528,10 @@ function App() {
                 className="todo-input-main"
                 placeholder="일정이나 루틴을 입력하세요..."
                 value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
+                onChange={e => {
+                  setInputValue(e.target.value);
+                  detectScheduleMode(e.target.value);
+                }}
                 onKeyPress={e => e.key === 'Enter' && handleAddTodo()}
               />
               <button className={`voice-btn ${isListening ? 'listening' : ''}`} onClick={startVoiceCommand}>
