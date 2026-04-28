@@ -2646,7 +2646,7 @@ function App() {
               const d = new Date();
               const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
               const isInDateRange = (!t.startDate || todayStr >= t.startDate) && (!t.endDate || todayStr <= t.endDate);
-              const isFutureRange = (!t.startDate || t.startDate >= todayStr) && (!t.endDate || t.endDate >= todayStr);
+              const isFutureRange = (!t.endDate || t.endDate >= todayStr);
 
               const mode = t.scheduleMode || 'routine';
 
@@ -2655,7 +2655,7 @@ function App() {
                 return isScheduledToday;
               }
 
-              // 일정/메모: 앞으로 날짜 기준만 표시 (오늘 이후)
+              // 일정/메모: 과거에 끝난 일정 제외, 현재 진행 중이거나 앞으로 다가올 일정만 표시
               const shouldShowByDate = isFutureRange;
 
               if (listFilter === 'all') {
