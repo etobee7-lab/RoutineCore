@@ -2491,6 +2491,7 @@ function App() {
           Debug: User={currentUser} | Count={todos.length}
         </div>
         <div style={{ padding: '0 1.2rem 1.2rem' }}>
+          <h2 className="section-title-premium">📅 새로운 일정 예약</h2>
           <div className="input-group scheduler">
             <div className="mode-toggle-group" style={{ marginBottom: '0.5rem' }}>
               {[
@@ -2529,10 +2530,7 @@ function App() {
                 className="todo-input-main"
                 placeholder="일정이나 루틴을 입력하세요..."
                 value={inputValue}
-                onChange={e => {
-                  setInputValue(e.target.value);
-                  detectScheduleMode(e.target.value);
-                }}
+                onChange={e => setInputValue(e.target.value)}
                 onKeyPress={e => e.key === 'Enter' && handleAddTodo()}
               />
               <button className={`voice-btn ${isListening ? 'listening' : ''}`} onClick={startVoiceCommand}>
@@ -2623,7 +2621,7 @@ function App() {
               </button>
             </div>
           </div>
-
+          <h2 className="section-title-premium">📋 오늘의 루틴 리스트</h2>
         {/* 일정 리스트 (오늘 요일 일정이거나, 오늘 이미 성공/알람 확인된 것만 표시) */}
         <ul className="todo-list">
           {(() => {
@@ -2650,23 +2648,17 @@ function App() {
               const isFutureStart = t.startDate && t.startDate > todayStr;
 
               const mode = t.scheduleMode || 'routine';
-
-              // 루틴: 요일 기반만 (365일 반복)
-              if (mode === 'routine') {
-                return isScheduledToday;
-              }
-
-              // 일정/메모: 과거에 끝난 일정 제외, 미래에 시작하는 일정 제외, 현재 진행 중인 것만 표시
               const shouldShowByDate = !isPastEnded && !isFutureStart;
+              const isShownToday = isScheduledToday && shouldShowByDate;
 
               if (listFilter === 'all') {
-                return mode === 'routine' ? isScheduledToday : shouldShowByDate;
+                return isShownToday;
               } else if (listFilter === 'routine') {
-                return mode === 'routine' && isScheduledToday;
+                return mode === 'routine' && isShownToday;
               } else if (listFilter === 'schedule') {
-                return mode === 'schedule' && shouldShowByDate;
+                return mode === 'schedule' && isShownToday;
               } else if (listFilter === 'memo') {
-                return mode === 'memo' && shouldShowByDate;
+                return mode === 'memo' && isShownToday;
               }
               return false;
             });
@@ -2681,8 +2673,7 @@ function App() {
             }
 
             const todayStr = new Date().toISOString().split('T')[0];
-            return [...filtered]
-              .sort((a, b) => {
+            const sorted = [...filtered].sort((a, b) => {
                 // 1. 완료 여부 (미완료 항목 우선)
                 const compA = completions.some(c => String(c.todo_id) === String(a.id) && c.date === todayStr);
                 const compB = completions.some(c => String(c.todo_id) === String(b.id) && c.date === todayStr);
@@ -2697,8 +2688,15 @@ function App() {
 
                 // 3. 동일 시간일 경우 최신 생성순
                 return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
-              })
-              .map(todo => (
+              });
+
+            const groups = {
+              schedule: sorted.filter(t => t.scheduleMode === 'schedule'),
+              routine: sorted.filter(t => (t.scheduleMode || 'routine') === 'routine'),
+              memo: sorted.filter(t => t.scheduleMode === 'memo')
+            };
+
+            const renderTodoItem = (todo) => (
                 <li key={todo.id} id={`todo-${todo.id}`} className={`todo-item ${todo.completed ? 'completed' : ''} ${todo.isFailed ? 'failed' : ''} ${editingId === todo.id ? 'editing' : ''} ${lastAddedId === todo.id ? 'newly-added' : ''}`}>
                   {editingId === todo.id ? (
                     <div className="edit-container">
@@ -2759,9 +2757,7 @@ function App() {
                   ) : (
                     <>
                       <div className="todo-left" onClick={(e) => {
-                        // 체크박스 자체 클릭 시에는 중복 실행 방지
                         if (e.target.type === 'checkbox') return;
-                        // [남개발 팀장] 대표님 지시: 항목 클릭 시 토글 대신 바로 수정 모드 진입!
                         startEdit(todo);
                       }} style={{ cursor: 'pointer' }}>
                         <input
@@ -2822,24 +2818,6 @@ function App() {
                                 ✅ 성공
                               </span>
                             )}
-                            {togglingIds.has(String(todo.id)) && (
-                              <span className="toggling-tag" style={{
-                                background: 'rgba(96, 165, 250, 0.2)',
-                                color: '#60a5fa',
-                                border: '1px solid rgba(96, 165, 250, 0.4)',
-                                fontSize: '0.65rem',
-                                padding: '1px 6px',
-                                borderRadius: '10px',
-                                fontWeight: 'bold',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                animation: 'togglingPulse 1.5s infinite ease-in-out',
-                                boxShadow: '0 0 10px rgba(96, 165, 250, 0.2)'
-                              }}>
-                                ✨ 성공로딩
-                              </span>
-                            )}
                           </div>
                           <span className="todo-text">
                             {todo.scheduleMode === 'schedule' ? '📅 ' :
@@ -2848,11 +2826,34 @@ function App() {
                           </span>
                         </div>
                       </div>
-                      <button className="edit-trigger-btn" onClick={() => startEdit(todo)}>수정</button>
+                      <div className="todo-item-action-hint">탭하여 수정 →</div>
                     </>
                   )}
                 </li>
-              ))
+            );
+
+            return (
+              <>
+                {groups.schedule.length > 0 && (
+                  <>
+                    <div className="category-group-header schedule">📅 오늘 일정 <span>{groups.schedule.length}</span></div>
+                    {groups.schedule.map(renderTodoItem)}
+                  </>
+                )}
+                {groups.routine.length > 0 && (
+                  <>
+                    <div className="category-group-header routine">🔄 오늘의 루틴 <span>{groups.routine.length}</span></div>
+                    {groups.routine.map(renderTodoItem)}
+                  </>
+                )}
+                {groups.memo.length > 0 && (
+                  <>
+                    <div className="category-group-header memo">📝 오늘의 메모 <span>{groups.memo.length}</span></div>
+                    {groups.memo.map(renderTodoItem)}
+                  </>
+                )}
+              </>
+            );
           })()
           }
         </ul>

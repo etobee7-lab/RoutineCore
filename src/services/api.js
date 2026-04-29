@@ -1,4 +1,4 @@
-const API_BASE = '';
+const API_BASE = window.location.port === '5173' ? `http://${window.location.hostname}:3000` : '';
 
 export const API_URLS = {
   TODOS: `${API_BASE}/api/todos`,
@@ -20,17 +20,37 @@ export const API_URLS = {
 };
 
 export const fetchAPI = async (url, options = {}) => {
+  const token = localStorage.getItem('routine_token');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
+
+  if (response.status === 401 || response.status === 403) {
+    // [남개발 부장] 토큰 만료 또는 권한 없음: 자동 로그아웃 처리
+    localStorage.removeItem('routine_token');
+    localStorage.removeItem('routine_user');
+    localStorage.removeItem('routine_auth');
+    if (window.location.pathname !== '/') {
+        window.location.href = '/';
+    }
+    throw new Error('인증이 만료되었습니다. 다시 로그인해 주세요.');
+  }
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || 'API call failed');
   }
+  
   if (response.status === 204) return null;
   return response.json();
 };

@@ -20,10 +20,11 @@ export const useTodos = (currentUser, isAuthenticated) => {
 
   const fetchTodos = async () => {
     if (!currentUser) return;
-    const sanitizedUser = currentUser.split('=')[0];
+    const sanitizedUser = currentUser;
     try {
-      const data = await fetchAPI(`${API_URLS.TODOS}?username=${sanitizedUser}`);
-      const compData = await fetchAPI(`${API_URLS.COMPLETIONS}?username=${sanitizedUser}`);
+      const data = await fetchAPI(`${API_URLS.TODOS}`);
+      console.log("Fetched todos count:", data.length);
+      const compData = await fetchAPI(`${API_URLS.COMPLETIONS}`);
       setCompletions(compData);
 
       setTodos(prev => {
