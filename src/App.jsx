@@ -137,6 +137,8 @@ function App() {
   const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
   const [rangeStart, setRangeStart] = useState(todayStr);   // 시작일
   const [rangeEnd, setRangeEnd] = useState(todayStr);       // 종료일
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
 
 
 
@@ -452,7 +454,37 @@ function App() {
         setRangeStart(toStdDateStr(new Date()));
       }
     }
+    // [남개발 부장] 열 때 현재 선택된 시작일의 달로 이동하는 센스!
+    if (rangeStart) {
+      const d = new Date(rangeStart);
+      setCalendarYear(d.getFullYear());
+      setCalendarMonth(d.getMonth());
+    } else {
+      const now = new Date();
+      setCalendarYear(now.getFullYear());
+      setCalendarMonth(now.getMonth());
+    }
     setShowCalendar(true);
+  };
+
+  const handlePrevMonth = () => {
+    setCalendarMonth(prev => {
+      if (prev === 0) {
+        setCalendarYear(y => y - 1);
+        return 11;
+      }
+      return prev - 1;
+    });
+  };
+
+  const handleNextMonth = () => {
+    setCalendarMonth(prev => {
+      if (prev === 11) {
+        setCalendarYear(y => y + 1);
+        return 0;
+      }
+      return prev + 1;
+    });
   };
 
 
@@ -826,10 +858,13 @@ function App() {
     const now = new Date();
     let parsedTime = { ampm: now.getHours() < 12 ? '오전' : '오후', hour: '07', minute: '00' };
 
-    // 1. 모드 판별
-    if (text.includes('루틴')) setScheduleMode('routine');
-    else if (text.includes('메모')) setScheduleMode('memo');
-    else setScheduleMode('schedule');
+    // 1. 모드 판별 (키워드가 있을 때만 변경, 없으면 현재 모드 유지)
+    let targetMode = scheduleMode;
+    if (text.includes('루틴')) targetMode = 'routine';
+    else if (text.includes('메모')) targetMode = 'memo';
+    else if (text.includes('일정')) targetMode = 'schedule';
+    
+    setScheduleMode(targetMode);
 
     // 2. 시간 추출
     if (text.includes('오후') || text.includes('점심') || text.includes('저녁') || text.includes('밤')) parsedTime.ampm = '오후';
@@ -853,7 +888,10 @@ function App() {
     const filter = /(일정|루틴|메모|오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
     let cleaned = text.replace(filter, '').replace(/\s+/g, ' ').trim();
     if (!cleaned) cleaned = text.trim();
-    setInputValue(cleaned);
+    
+    // [남개발 부장] 음성 입력 시에도 선택된 모드 키워드를 자동으로 붙여줌 (사용자 요청 반영)
+    const modeLabel = targetMode === 'routine' ? '루틴' : (targetMode === 'memo' ? '메모' : '일정');
+    setInputValue(`${modeLabel} ${cleaned}`);
   };
 
   const resetForm = (isSubmitted = false) => {
@@ -2500,15 +2538,32 @@ function App() {
           <h2 className="section-title-premium">📅 새로운 일정 예약</h2>
           <div className="input-group scheduler">
             <div className="mode-toggle-group" style={{ marginBottom: '0.5rem' }}>
-              {[
-                { key: 'schedule', label: '📅 일정', color: '#3b82f6' },
-                { key: 'routine', label: '🔁 루틴', color: '#8b5cf6' },
-                { key: 'memo', label: '📝 메모', color: '#10b981' }
-              ].map(({ key, label }) => (
-                <button
-                  key={key}
-                  className={`mode-toggle-btn ${scheduleMode === key ? 'active' : ''}`}
-                  onClick={() => setScheduleMode(key)}
+                {([
+                  { key: 'schedule', label: '일정', full: '📅 일정', color: '#3b82f6' },
+                  { key: 'routine', label: '루틴', full: '🔁 루틴', color: '#8b5cf6' },
+                  { key: 'memo', label: '메모', full: '📝 메모', color: '#10b981' }
+                ]).map(({ key, label, full }) => (
+                  <button
+                    key={key}
+                    className={`mode-toggle-btn ${scheduleMode === key ? 'active' : ''}`}
+                    onClick={() => {
+                      setScheduleMode(key);
+                      // [남개발 부장] 버튼 클릭 시 입력창에 해당 키워드 자동 주입 (사용자 편의성 극대화)
+                      const currentVal = inputValue.trim();
+                      const keywords = ['일정', '루틴', '메모'];
+                      let hasKeyword = keywords.some(k => currentVal.startsWith(k));
+                      
+                      if (!currentVal || hasKeyword) {
+                        // 비어있거나 이미 키워드로 시작하면 교체
+                        setInputValue(`${label} `);
+                      } else {
+                        // 내용이 있으면 앞에 추가 (기존 내용 보존)
+                        setInputValue(`${label} ${currentVal}`);
+                      }
+                      
+                      // 입력창으로 포커스 이동 (선택 사항)
+                      document.querySelector('.todo-input-main')?.focus();
+                    }}
                   style={{
                     flex: 1,
                     padding: '0.4rem 0.6rem',
@@ -2525,10 +2580,10 @@ function App() {
                     cursor: 'pointer',
                     transition: 'all 0.2s ease'
                   }}
-                >
-                  {label}
-                </button>
-              ))}
+                  >
+                    {full}
+                  </button>
+                ))}
             </div>
             <div className="input-with-voice">
               <input
@@ -2881,15 +2936,18 @@ function App() {
         <div className="date-picker-overlay scroll-style" onClick={() => setShowCalendar(false)}>
           <div className="date-picker-modal" onClick={e => e.stopPropagation()}>
             <div className="calendar-header">
-              <h3>📅 기간 선택 (시작 ~ 종료)</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <button onClick={handlePrevMonth} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}>◀</button>
+                <h3 style={{ margin: 0, minWidth: '120px', textAlign: 'center' }}>📅 {calendarYear}년 {calendarMonth + 1}월</h3>
+                <button onClick={handleNextMonth} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}>▶</button>
+              </div>
               <button className="close-cal-btn" onClick={() => setShowCalendar(false)}>✕</button>
             </div>
 
             <div className="calendar-grid">
               {(() => {
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = now.getMonth();
+                const year = calendarYear;
+                const month = calendarMonth;
                 const firstDay = new Date(year, month, 1).getDay();
                 const lastDate = new Date(year, month + 1, 0).getDate();
                 const days = [];
