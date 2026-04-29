@@ -250,93 +250,160 @@ const ScheduleOnlyCalendar = ({
           <span className="header-title-mobile" style={{ fontWeight: '900', fontSize: '0.95rem', color: '#fff', letterSpacing: '-0.5px' }}>{currentHeader}</span>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {displayDays.map(({ dayIndex, date, dateStr }) => {
-            const dayTodos = getScheduleTodosByDay(dayIndex, dateStr);
-            const isToday = dateStr === todayStr;
-            const color = dayColors[dayIndex];
-            const month = date.getMonth() + 1;
-            const day = date.getDate();
+      <div className="calendar-grid-premium" style={{ 
+        padding: '10px', 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(3, 1fr)', 
+        gap: '12px',
+        maxWidth: '1200px',
+        margin: '0 auto'
+      }}>
+        <style>{`
+          .calendar-grid-premium {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+          }
+          @media (max-width: 900px) {
+            .calendar-grid-premium {
+              grid-template-columns: repeat(2, 1fr) !important;
+            }
+          }
+          @media (max-width: 600px) {
+            .calendar-grid-premium {
+              grid-template-columns: 1fr !important;
+            }
+          }
+          .day-column-premium {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+          .day-card-premium {
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+          }
+          .todo-list-scroll {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 400px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.1) transparent;
+          }
+          .todo-list-scroll::-webkit-scrollbar { width: 4px; }
+          .todo-list-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        `}</style>
 
-            return (
-              <div
-                key={dateStr}
-                id={isToday ? 'calendar-today' : undefined}
-                className="day-card-premium"
-                style={{
-                  borderRadius: '18px',
-                  background: isToday ? 'rgba(99, 102, 241, 0.05)' : 'rgba(255,255,255,0.015)',
-                  border: isToday ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(255,255,255,0.05)',
-                  overflow: 'hidden',
-                  boxShadow: isToday ? '0 12px 35px rgba(0,0,0,0.3)' : 'none'
-                }}
-              >
-                <div className="day-header-premium" style={{
-                  display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px',
-                  background: isToday ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.03)',
-                  borderBottom: dayTodos.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none'
-                }}>
-                  <span style={{ width: '30px', height: '30px', borderRadius: '10px', background: isToday ? color : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: '900', color: isToday ? '#fff' : color, flexShrink: 0 }}>
-                    {dayNames[dayIndex]}
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span className="date-text" style={{ color: isToday ? '#fff' : '#cbd5e1', fontSize: '0.9rem', fontWeight: '800' }}>
-                      {month}월 {day}일
-                      {isToday && <span style={{ marginLeft: '8px', fontSize: '0.65rem', background: '#6366f1', color: '#fff', padding: '2px 8px', borderRadius: '20px', verticalAlign: 'middle', fontWeight: '900' }}>TODAY</span>}
-                    </span>
-                  </div>
-                  <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#64748b', fontWeight: '700' }}>{dayTodos.length}개</span>
-                </div>
+        {displayDays.map(({ dayIndex, date, dateStr }) => {
+          const dayTodos = getScheduleTodosByDay(dayIndex, dateStr);
+          const isToday = dateStr === todayStr;
+          const color = dayColors[dayIndex];
+          const month = date.getMonth() + 1;
+          const day = date.getDate();
 
-                {dayTodos.length > 0 && (
-                  <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+          return (
+            <div
+              key={dateStr}
+              id={isToday ? 'calendar-today' : undefined}
+              className="day-card-premium"
+              style={{
+                borderRadius: '20px',
+                background: isToday ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255,255,255,0.02)',
+                border: isToday ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                overflow: 'hidden',
+                boxShadow: isToday ? '0 15px 40px rgba(0,0,0,0.4)' : 'none',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <div className="day-header-premium" style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px',
+                background: isToday ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.04)',
+                borderBottom: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                <span style={{ width: '28px', height: '28px', borderRadius: '8px', background: isToday ? color : 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: '900', color: isToday ? '#fff' : color }}>
+                  {dayNames[dayIndex]}
+                </span>
+                <span className="date-text" style={{ color: isToday ? '#fff' : '#cbd5e1', fontSize: '0.85rem', fontWeight: '800' }}>
+                  {month}/{day}
+                  {isToday && <span style={{ marginLeft: '6px', fontSize: '0.6rem', color: '#6366f1', fontWeight: '900' }}>●</span>}
+                </span>
+                <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#64748b', fontWeight: '700' }}>{dayTodos.length}</span>
+              </div>
 
+              <div className="todo-list-scroll" style={{ padding: '8px' }}>
+                {dayTodos.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {dayTodos.map(todo => (
                       <div
                         key={todo.id}
                         className="todo-item-premium"
                         onClick={() => { closeCalendar(); startEdit(todo); }}
                         style={{
-                          display: 'flex', alignItems: 'center', gap: '10px',
-                          padding: '10px 14px', borderRadius: '12px',
-                          background: todo.completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255,255,255,0.02)',
-                          borderLeft: `5px solid ${todo.completed ? '#22c55e' : color}`,
-                          cursor: 'pointer', transition: 'all 0.2s',
-                          border: '1px solid rgba(255,255,255,0.01)',
-                          opacity: todo.completed ? 0.7 : 1
+                          display: 'flex', flexDirection: 'column', gap: '2px',
+                          padding: '4px 8px', borderRadius: '8px',
+                          background: todo.completed ? 'rgba(34, 197, 94, 0.05)' : 'rgba(255,255,255,0.02)',
+                          borderLeft: `3px solid ${todo.completed ? '#22c55e' : color}`,
+                          cursor: 'pointer', transition: 'all 0.1s',
+                          opacity: todo.completed ? 0.6 : 1,
+                          marginBottom: '2px'
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = todo.completed ? 'rgba(34, 197, 94, 0.12)' : 'rgba(255,255,255,0.05)'; e.currentTarget.style.transform = 'translateX(5px)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = todo.completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(255,255,255,0.02)'; e.currentTarget.style.transform = 'translateX(0)'; }}
                       >
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleTodo(todo, dateStr);
-                          }}
-                          style={{
-                            width: '20px', height: '20px', minWidth: '20px',
-                            borderRadius: '5px',
-                            border: `2px solid ${completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : color}`,
-                            background: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : 'transparent',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', transition: 'all 0.2s',
-                            flexShrink: 0
-                          }}
-                        >
-                          {completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) && <span style={{ color: '#fff', fontSize: '0.75rem', fontWeight: '900' }}>✓</span>}
+                        {/* 상단: 체크박스와 시간 (초소형) */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleTodo(todo, dateStr);
+                            }}
+                            style={{
+                              width: '14px', height: '14px', minWidth: '14px',
+                              borderRadius: '4px',
+                              border: `1.5px solid ${completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : color}`,
+                              background: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) && <span style={{ color: '#fff', fontSize: '0.6rem', fontWeight: '900' }}>✓</span>}
+                          </div>
+                          <span style={{ 
+                            fontSize: '0.65rem', 
+                            color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : color, 
+                            fontWeight: '800',
+                            letterSpacing: '-0.2px'
+                          }}>
+                            {formatTime(todo.time)}
+                          </span>
                         </div>
-                        <span style={{ fontSize: '0.75rem', color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : color, fontWeight: '900', minWidth: '60px' }}>{formatTime(todo.time)}</span>
-                        <span style={{ fontSize: '0.9rem', color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : '#f1f5f9', flex: 1, fontWeight: '600', textDecoration: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? 'line-through' : 'none' }}>{todo.text}</span>
+
+                        {/* 하단: 일정 내용 (초소형) */}
+                        <div style={{ paddingLeft: '0' }}>
+                          <span style={{ 
+                            fontSize: '0.75rem', 
+                            color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : '#f1f5f9', 
+                            fontWeight: '600', 
+                            textDecoration: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? 'line-through' : 'none', 
+                            display: 'block',
+                            lineHeight: '1.2',
+                            wordBreak: 'break-all',
+                            letterSpacing: '-0.3px'
+                          }}>
+                            {todo.text}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '20px 0', color: 'rgba(255,255,255,0.05)', fontSize: '0.7rem' }}>일정 없음</div>
                 )}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
     </div>
+  </div>
   );
 };
 

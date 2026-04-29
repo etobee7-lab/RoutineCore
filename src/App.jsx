@@ -90,6 +90,8 @@ function App() {
   const { voices, speakText, playAlarmSound } = useAlarm();
   const { subscribeUserToPush } = useNotifications();
 
+  const togglingIdsRef = useRef(new Set());
+
   // 현재 시간 기준 기본값 계산 함수
   const getDefaultTime = () => {
     const now = new Date();
@@ -848,7 +850,7 @@ function App() {
     setAmpm(parsedTime.ampm);  // 최종 ampm 설정 (시간 파싱 결과 반영됨)
 
     // 3. 업무명 정제 (7시 47분 보호막 소거, '해/줘' 단독 글자 필터 제외) 🛡️
-    const filter = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
+    const filter = /(일정|루틴|메모|오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
     let cleaned = text.replace(filter, '').replace(/\s+/g, ' ').trim();
     if (!cleaned) cleaned = text.trim();
     setInputValue(cleaned);
@@ -921,7 +923,7 @@ function App() {
   };
 
   const addTodo = async (overrideTime = null) => {
-    const filter = /(오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
+    const filter = /(일정|루틴|메모|오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
     let rawVal = inputValue.trim();
     let cleaned = rawVal.replace(filter, '').replace(/\s+/g, ' ').trim();
     if (!cleaned) cleaned = rawVal;
@@ -1042,10 +1044,14 @@ function App() {
         const todoToUpdate = todos.find(t => String(t.id) === String(id));
         const mode = todoToUpdate ? todoToUpdate.scheduleMode : null;
 
+        const filter = /(일정|루틴|메모|오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
+        let cleanedEditValue = editValue.replace(filter, '').replace(/\s+/g, ' ').trim();
+        if (!cleanedEditValue) cleanedEditValue = editValue;
+
         await fetchAPI(`${API_URLS.TODOS}/${id}`, {
           method: 'PATCH',
           body: JSON.stringify({
-            text: editValue,
+            text: cleanedEditValue,
             time: formattedTime,
             days: editDays.join(','),
             excludeHolidays: editExcludeHolidays,
@@ -2696,8 +2702,12 @@ function App() {
               memo: sorted.filter(t => t.scheduleMode === 'memo')
             };
 
-            const renderTodoItem = (todo) => (
-                <li key={todo.id} id={`todo-${todo.id}`} className={`todo-item ${todo.completed ? 'completed' : ''} ${todo.isFailed ? 'failed' : ''} ${editingId === todo.id ? 'editing' : ''} ${lastAddedId === todo.id ? 'newly-added' : ''}`}>
+            const renderTodoItem = (todo) => {
+              const todoIdStr = String(todo.id);
+              const isDone = completions.some(c => String(c.todo_id) === todoIdStr && c.date === todayStr);
+              
+              return (
+                <li key={`${todo.scheduleMode}-${todoIdStr}`} id={`todo-${todoIdStr}`} className={`todo-item ${isDone ? 'completed' : ''} ${todo.isFailed ? 'failed' : ''} ${editingId === todo.id ? 'editing' : ''} ${lastAddedId === todo.id ? 'newly-added' : ''}`}>
                   {editingId === todo.id ? (
                     <div className="edit-container">
                       <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
@@ -2761,9 +2771,14 @@ function App() {
                         startEdit(todo);
                       }} style={{ cursor: 'pointer' }}>
                         <input
+                          id={`dash-chk-${todo.scheduleMode}-${todoIdStr}`}
                           type="checkbox"
-                          checked={completions.some(c => String(c.todo_id) === String(todo.id) && c.date === new Date().toISOString().split('T')[0])}
-                          onChange={() => toggleTodo(todo)}
+                          checked={isDone}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleTodo(todo);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
                           className="todo-checkbox"
                         />
                         <div className="content-group">
@@ -2788,9 +2803,9 @@ function App() {
                             {!!todo.excludeHolidays && <span className="holiday-tag">🚫휴</span>}
                             {!!todo.isFailed && (
                               <span className="failed-tag" style={{
-                                background: todo.completed ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.2)',
-                                color: todo.completed ? '#fca5a5' : '#f87171',
-                                border: `1px solid ${todo.completed ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.4)'}`,
+                                background: isDone ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.2)',
+                                color: isDone ? '#fca5a5' : '#f87171',
+                                border: `1px solid ${isDone ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.4)'}`,
                                 fontSize: '0.65rem',
                                 padding: '1px 6px',
                                 borderRadius: '10px',
@@ -2799,10 +2814,10 @@ function App() {
                                 alignItems: 'center',
                                 gap: '3px'
                               }}>
-                                {todo.completed ? '✅ 밀당완료' : '🧘 쉬어감'}
+                                {isDone ? '✅ 밀당완료' : '🧘 쉬어감'}
                               </span>
                             )}
-                            {!!todo.completed && !todo.isFailed && (
+                            {isDone && !todo.isFailed && (
                               <span className="success-tag" style={{
                                 background: 'rgba(16, 185, 129, 0.15)',
                                 color: '#10b981',
@@ -2830,7 +2845,8 @@ function App() {
                     </>
                   )}
                 </li>
-            );
+              );
+            };
 
             return (
               <>
