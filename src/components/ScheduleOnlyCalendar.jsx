@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import RenderAvatar from './RenderAvatar';
 
 const ScheduleOnlyCalendar = ({ 
@@ -22,6 +22,9 @@ const ScheduleOnlyCalendar = ({
   const [baseDate, setBaseDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('week');
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'completed' | 'incomplete' 
+  const [swipingId, setSwipingId] = useState(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const touchStartX = useRef(0);
 
   const dayNameToIndex = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
   const dayColors = {
@@ -120,6 +123,40 @@ const ScheduleOnlyCalendar = ({
   const currentHeader = viewMode === 'week' 
     ? `${baseDate.getFullYear()}년 ${baseDate.getMonth() + 1}월 ${Math.ceil(baseDate.getDate() / 7)}주차`
     : `${baseDate.getFullYear()}년 ${baseDate.getMonth() + 1}월 전체`;
+
+  const handleTouchStart = (e, id) => {
+    touchStartX.current = e.touches[0].clientX;
+    setSwipingId(id);
+    setSwipeOffset(0);
+  };
+
+  const handleTouchMove = (e, id) => {
+    if (swipingId !== id) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - touchStartX.current;
+    
+    let offset = diff;
+    if (Math.abs(diff) > 120) {
+      offset = diff > 0 ? 120 + (diff - 120) * 0.2 : -120 + (diff + 120) * 0.2;
+    }
+    setSwipeOffset(offset);
+  };
+
+  const handleTouchEnd = (e, todo, dateStr) => {
+    if (swipingId !== todo.id) return;
+
+    const threshold = 100;
+    if (swipeOffset > threshold) {
+      // 당일 미션만 처리되도록 오늘 날짜로 변경
+      toggleTodo(todo, todayStr);
+    } else if (swipeOffset < -threshold) {
+      closeCalendar();
+      startEdit(todo);
+    }
+
+    setSwipingId(null);
+    setSwipeOffset(0);
+  };
 
   return (
     <div className="calendar-mobile-optimized" style={{ 
@@ -334,62 +371,80 @@ const ScheduleOnlyCalendar = ({
                 {dayTodos.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {dayTodos.map(todo => (
-                      <div
-                        key={todo.id}
-                        className="todo-item-premium"
-                        onClick={() => { closeCalendar(); startEdit(todo); }}
-                        style={{
-                          display: 'flex', flexDirection: 'column', gap: '2px',
-                          padding: '4px 8px', borderRadius: '8px',
-                          background: todo.completed ? 'rgba(34, 197, 94, 0.05)' : 'rgba(255,255,255,0.02)',
-                          borderLeft: `3px solid ${todo.completed ? '#22c55e' : color}`,
-                          cursor: 'pointer', transition: 'all 0.1s',
-                          opacity: todo.completed ? 0.6 : 1,
-                          marginBottom: '2px'
-                        }}
-                      >
-                        {/* 상단: 체크박스와 시간 (초소형) */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleTodo(todo, dateStr);
-                            }}
-                            style={{
-                              width: '14px', height: '14px', minWidth: '14px',
-                              borderRadius: '4px',
-                              border: `1.5px solid ${completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : color}`,
-                              background: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : 'transparent',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) && <span style={{ color: '#fff', fontSize: '0.6rem', fontWeight: '900' }}>✓</span>}
-                          </div>
-                          <span style={{ 
-                            fontSize: '0.65rem', 
-                            color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : color, 
-                            fontWeight: '800',
-                            letterSpacing: '-0.2px'
-                          }}>
-                            {formatTime(todo.time)}
-                          </span>
+                      <div key={todo.id} className="todo-swipe-container" style={{ margin: 0, borderRadius: '8px' }}>
+                        <div className="swipe-background success" style={{ 
+                          opacity: swipingId === todo.id && swipeOffset > 20 ? Math.min(swipeOffset / 80, 1) : 0,
+                          fontSize: '0.7rem', padding: '0 10px', borderRadius: '8px' 
+                        }}>
+                          <span>✅ 성공</span>
                         </div>
+                        <div className="swipe-background edit" style={{ 
+                          opacity: swipingId === todo.id && swipeOffset < -20 ? Math.min(Math.abs(swipeOffset) / 80, 1) : 0,
+                          fontSize: '0.7rem', padding: '0 10px', borderRadius: '8px'
+                        }}>
+                          <span>📝 수정</span>
+                        </div>
+                        <div
+                          className={`todo-item todo-item-premium ${swipingId === todo.id ? 'swiping' : ''}`}
+                          onTouchStart={(e) => handleTouchStart(e, todo.id)}
+                          onTouchMove={(e) => handleTouchMove(e, todo.id)}
+                          onTouchEnd={(e) => handleTouchEnd(e, todo, dateStr)}
+                          onClick={() => { closeCalendar(); startEdit(todo); }}
+                          style={{
+                            display: 'flex', flexDirection: 'column', gap: '2px',
+                            padding: '4px 8px', borderRadius: '8px',
+                            background: todo.completed ? 'rgba(34, 197, 94, 0.05)' : 'rgba(255,255,255,0.02)',
+                            borderLeft: `3px solid ${todo.completed ? '#22c55e' : color}`,
+                            cursor: 'pointer', transition: swipingId === todo.id ? 'none' : 'transform 0.2s',
+                            transform: swipingId === todo.id ? `translateX(${swipeOffset}px)` : 'translateX(0)',
+                            opacity: todo.completed ? 0.6 : 1,
+                            position: 'relative', zIndex: 2
+                          }}
+                        >
+                          {/* 상단: 체크박스와 시간 (초소형) */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // 당일 미션만 처리되도록 오늘 날짜로 변경
+                                toggleTodo(todo, todayStr);
+                              }}
+                              style={{
+                                width: '14px', height: '14px', minWidth: '14px',
+                                borderRadius: '4px',
+                                border: `1.5px solid ${completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : color}`,
+                                background: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#22c55e' : 'transparent',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) && <span style={{ color: '#fff', fontSize: '0.6rem', fontWeight: '900' }}>✓</span>}
+                            </div>
+                            <span style={{ 
+                              fontSize: '0.65rem', 
+                              color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : color, 
+                              fontWeight: '800',
+                              letterSpacing: '-0.2px'
+                            }}>
+                              {formatTime(todo.time)}
+                            </span>
+                          </div>
 
-                        {/* 하단: 일정 내용 (초소형) */}
-                        <div style={{ paddingLeft: '0' }}>
-                          <span style={{ 
-                            fontSize: '0.75rem', 
-                            color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : '#f1f5f9', 
-                            fontWeight: '600', 
-                            textDecoration: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? 'line-through' : 'none', 
-                            display: 'block',
-                            lineHeight: '1.2',
-                            wordBreak: 'break-all',
-                            letterSpacing: '-0.3px'
-                          }}>
-                            {todo.text}
-                          </span>
+                          {/* 하단: 일정 내용 (초소형) */}
+                          <div style={{ paddingLeft: '0' }}>
+                            <span style={{ 
+                              fontSize: '0.75rem', 
+                              color: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? '#64748b' : '#f1f5f9', 
+                              fontWeight: '600', 
+                              textDecoration: completions.some(c => String(c.todo_id) === String(todo.id) && c.date === dateStr) ? 'line-through' : 'none', 
+                              display: 'block',
+                              lineHeight: '1.2',
+                              wordBreak: 'break-all',
+                              letterSpacing: '-0.3px'
+                            }}>
+                              {todo.text}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}

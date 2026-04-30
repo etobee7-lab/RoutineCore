@@ -1212,15 +1212,6 @@ function App() {
     const todayDate = new Date();
     const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
 
-    // 미래 날짜 성공 처리 방지
-    const todayLimit = toStdDateStr(new Date());
-    const d1 = Number(today.replace(/-/g, ''));
-    const d2 = Number(todayLimit.replace(/-/g, ''));
-    if (d1 > d2) {
-      alert("미래 날짜는 미리 성공 처리할 수 없습니다.");
-      return;
-    }
-
     console.log(`[ALARM] Confirming todo: ${todoIdStr} ("${alert.todo.text}")`);
 
     // 즉시 해당 일정의 모든 알람창을 닫음 (중복 생성 대비)
@@ -1258,15 +1249,6 @@ function App() {
     const todoIdStr = String(todoId);
     const todayDate = new Date();
     const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
-
-    // 미래 날짜 쉬어감 처리 방지
-    const todayLimit = toStdDateStr(new Date());
-    const d1 = Number(today.replace(/-/g, ''));
-    const d2 = Number(todayLimit.replace(/-/g, ''));
-    if (d1 > d2) {
-      alert("미래 날짜는 미리 쉬어감 처리할 수 없습니다.");
-      return;
-    }
 
     console.log(`[ALARM] Failing todo: ${todoIdStr} ("${alert.todo.text}")`);
 
