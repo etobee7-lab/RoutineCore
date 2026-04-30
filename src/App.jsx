@@ -47,7 +47,7 @@ const getWeekStr = () => {
   const day = now.getDay();
   const diff = now.getDate() - (day === 0 ? 6 : day - 1);
   const monday = new Date(now.setDate(diff));
-  return monday.toISOString().split('T')[0];
+  return toStdDateStr(monday);
 };
 
 // [남개발 부장] 포인트 기반 성취 등급 추출 (3번 제안)
@@ -72,6 +72,8 @@ const formatTime = (timeStr) => {
 
 
 
+// [남개발 부장] 날짜 비교를 위한 표준 포맷 도우미 (YYYY-MM-DD)
+const toStdDateStr = (d) => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
 
 function App() {
   const { 
@@ -134,11 +136,16 @@ function App() {
 
   // [남개발 부장] 기간 선택 캘린더 엔진용 센서 장착!
   const [showCalendar, setShowCalendar] = useState(false); // 달력 노출 여부
-  const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const todayStr = toStdDateStr(new Date());
   const [rangeStart, setRangeStart] = useState(todayStr);   // 시작일
   const [rangeEnd, setRangeEnd] = useState(todayStr);       // 종료일
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+
+  // [남개발 부장] 스와이프 퀵 액션용 센서
+  const [swipingId, setSwipingId] = useState(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const touchStartX = useRef(0);
 
 
 
@@ -440,8 +447,7 @@ function App() {
     setEnd(end);
   };
 
-  // [남개발 부장] 날짜 비교를 위한 표준 포맷 도우미 (YYYY-MM-DD)
-  const toStdDateStr = (d) => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
+
 
   // [남개발 부장] 캘린더 오픈 시 기간이 없으면 현재 선택된 요일에 맞춰 자동 계산!
   const handleOpenCalendar = () => {
@@ -895,27 +901,23 @@ function App() {
   };
 
   const resetForm = (isSubmitted = false) => {
-    const isActuallySubmitted = isSubmitted === true;
     const nextT = getDefaultTime();
     const DAYS_KOR = ['일', '월', '화', '수', '목', '금', '토'];
-    const todayKor = DAYS_KOR[new Date().getDay()];
+    const now = new Date();
+    const todayKor = DAYS_KOR[now.getDay()];
+    const currentTodayStr = toStdDateStr(now);
 
-    if (isActuallySubmitted) {
-      setInputValue('');
-      setExcludeHolidays(true);
-      setSelectedDays(['월', '화', '수', '목', '금']);
-    } else {
-      setExcludeHolidays(false);
-      setSelectedDays([todayKor]);
-    }
+    setInputValue('');
+    setExcludeHolidays(false);
+    setSelectedDays([todayKor]);
     setAmpm(nextT.ampm);
     setHour(nextT.hour);
     setMinute(nextT.minute);
     setScheduleMode('schedule');
-    setEditingId(null); // [남개발 팀장] 편집 상태도 함께 초기화
+    setEditingId(null);
     setPrevIsSchedule(null);
-    setRangeStart(todayStr);
-    setRangeEnd(todayStr);
+    setRangeStart(currentTodayStr);
+    setRangeEnd(currentTodayStr);
   };
 
   // [남개발 팀장] 예약/Enter 버튼 누를 때 시간 파싱 후 저장
@@ -1130,13 +1132,15 @@ function App() {
     const todoIdStr = String(todo.id);
     if (togglingIdsRef.current.has(todoIdStr)) return;
 
-    // [남개발 팀장] 날짜가 없으면 오늘 날짜를 기본값으로 사용
-    const dateStr = targetDate || new Date().toISOString().split('T')[0];
-
-    // [남개발 부장] 미래 날짜 성공 처리 방지 로직 (요청 사항)
-    const todayLimit = new Date().toISOString().split('T')[0];
-    if (dateStr > todayLimit) {
-      alert("미래의 일정은 미리 성공 처리할 수 없습니다. 해당 날짜에 완료해주세요! 😊");
+    // [남개발 부장] 미래 날짜 성공 처리 방지 로직 (숫자형 비교로 오차 제로화)
+    const dateStr = (targetDate || toStdDateStr(new Date())).slice(0, 10);
+    const todayLimit = toStdDateStr(new Date());
+    
+    const d1 = Number(dateStr.replace(/-/g, ''));
+    const d2 = Number(todayLimit.replace(/-/g, ''));
+    
+    if (d1 > d2) {
+      alert("미래 날짜는 미리 성공 처리할 수 없습니다.");
       return;
     }
 
@@ -1208,6 +1212,15 @@ function App() {
     const todayDate = new Date();
     const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
 
+    // 미래 날짜 성공 처리 방지
+    const todayLimit = toStdDateStr(new Date());
+    const d1 = Number(today.replace(/-/g, ''));
+    const d2 = Number(todayLimit.replace(/-/g, ''));
+    if (d1 > d2) {
+      alert("미래 날짜는 미리 성공 처리할 수 없습니다.");
+      return;
+    }
+
     console.log(`[ALARM] Confirming todo: ${todoIdStr} ("${alert.todo.text}")`);
 
     // 즉시 해당 일정의 모든 알람창을 닫음 (중복 생성 대비)
@@ -1245,6 +1258,15 @@ function App() {
     const todoIdStr = String(todoId);
     const todayDate = new Date();
     const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
+
+    // 미래 날짜 쉬어감 처리 방지
+    const todayLimit = toStdDateStr(new Date());
+    const d1 = Number(today.replace(/-/g, ''));
+    const d2 = Number(todayLimit.replace(/-/g, ''));
+    if (d1 > d2) {
+      alert("미래 날짜는 미리 쉬어감 처리할 수 없습니다.");
+      return;
+    }
 
     console.log(`[ALARM] Failing todo: ${todoIdStr} ("${alert.todo.text}")`);
 
@@ -1364,7 +1386,7 @@ function App() {
 
       const ws = XLSX.utils.json_to_sheet(exportData);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      XLSX.writeFile(wb, `${label}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      XLSX.writeFile(wb, `${label}_${toStdDateStr(new Date())}.xlsx`);
     } catch (err) { alert("내보내기 실패: " + err.message); }
   };
 
@@ -2484,7 +2506,7 @@ function App() {
         <div className="main-sticky-wrapper">
           <div className="app-header-premium" style={{ margin: 0 }}>
             <div className="header-topmost-row">
-              <div className="brand-logo" onClick={() => setShowDailyChart(true)}>
+              <div className="brand-logo" onClick={() => { setShowSuccessRoom(false); setShowMyPage(false); setShowScheduleCalendar(true); }}>
                 <img src="/logo512.png" alt="Routine Core Logo" className="header-logo-img" />
                 <h1>Routine<br /><span>Core</span></h1>
               </div>
@@ -2531,11 +2553,7 @@ function App() {
             </div>
           </div>
         </div>
-        <div style={{ fontSize: '10px', color: '#475569', padding: '5px 20px', textAlign: 'center', background: 'rgba(0,0,0,0.3)' }}>
-          Debug: User={currentUser} | Count={todos.length}
-        </div>
         <div style={{ padding: '0 1.2rem 1.2rem' }}>
-          <h2 className="section-title-premium">📅 새로운 일정 예약</h2>
           <div className="input-group scheduler">
             <div className="mode-toggle-group" style={{ marginBottom: '0.5rem' }}>
                 {([
@@ -2683,44 +2701,35 @@ function App() {
             </div>
           </div>
           <h2 className="section-title-premium">📋 오늘의 루틴 리스트</h2>
-        {/* 일정 리스트 (오늘 요일 일정이거나, 오늘 이미 성공/알람 확인된 것만 표시) */}
         <ul className="todo-list">
           {(() => {
             const currentDay = DAYS_OF_WEEK[new Date().getDay()];
-            const isWeekend = new Date().getDay() === 0 || new Date().getDay() === 6;
+            const todayStr = toStdDateStr(new Date());
 
             const filtered = todos.filter(t => {
               if (editingId === t.id) return true;
-
-              // 검색어 필터링
               if (searchQuery.trim()) {
                 const query = searchQuery.toLowerCase();
-                const textMatch = t.text.toLowerCase().includes(query);
-                if (!textMatch) return false;
+                if (!t.text.toLowerCase().includes(query)) return false;
               }
 
               const dayList = t.days ? t.days.split(',').map(d => d.trim()).filter(Boolean) : [];
               const isScheduledToday = dayList.length === 0 || dayList.includes(currentDay);
 
               const d = new Date();
-              const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-              const isInDateRange = (!t.startDate || todayStr >= t.startDate) && (!t.endDate || todayStr <= t.endDate);
-              const isPastEnded = t.endDate && t.endDate < todayStr;
-              const isFutureStart = t.startDate && t.startDate > todayStr;
+              const todayDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+              const isInDateRange = (!t.startDate || todayDateStr >= t.startDate) && (!t.endDate || todayDateStr <= t.endDate);
+              const isPastEnded = t.endDate && t.endDate < todayDateStr;
+              const isFutureStart = t.startDate && t.startDate > todayDateStr;
 
               const mode = t.scheduleMode || 'routine';
               const shouldShowByDate = !isPastEnded && !isFutureStart;
               const isShownToday = isScheduledToday && shouldShowByDate;
 
-              if (listFilter === 'all') {
-                return isShownToday;
-              } else if (listFilter === 'routine') {
-                return mode === 'routine' && isShownToday;
-              } else if (listFilter === 'schedule') {
-                return mode === 'schedule' && isShownToday;
-              } else if (listFilter === 'memo') {
-                return mode === 'memo' && isShownToday;
-              }
+              if (listFilter === 'all') return isShownToday;
+              if (listFilter === 'routine') return mode === 'routine' && isShownToday;
+              if (listFilter === 'schedule') return mode === 'schedule' && isShownToday;
+              if (listFilter === 'memo') return mode === 'memo' && isShownToday;
               return false;
             });
 
@@ -2733,23 +2742,18 @@ function App() {
               );
             }
 
-            const todayStr = new Date().toISOString().split('T')[0];
             const sorted = [...filtered].sort((a, b) => {
-                // 1. 완료 여부 (미완료 항목 우선)
-                const compA = completions.some(c => String(c.todo_id) === String(a.id) && c.date === todayStr);
-                const compB = completions.some(c => String(c.todo_id) === String(b.id) && c.date === todayStr);
-                if (compA !== compB) return compA ? 1 : -1;
+              const compA = completions.some(c => String(c.todo_id) === String(a.id) && c.date === todayStr);
+              const compB = completions.some(c => String(c.todo_id) === String(b.id) && c.date === todayStr);
+              if (compA !== compB) return compA ? 1 : -1;
 
-                // 2. 시간 순 정렬
-                const timeA = a.time || '99:99';
-                const timeB = b.time || '99:99';
-                if (timeA !== timeB) {
-                  return listSort === 'asc' ? timeA.localeCompare(timeB) : timeB.localeCompare(timeA);
-                }
-
-                // 3. 동일 시간일 경우 최신 생성순
-                return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
-              });
+              const timeA = a.time || '99:99';
+              const timeB = b.time || '99:99';
+              if (timeA !== timeB) {
+                return listSort === 'asc' ? timeA.localeCompare(timeB) : timeB.localeCompare(timeA);
+              }
+              return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
+            });
 
             const groups = {
               schedule: sorted.filter(t => t.scheduleMode === 'schedule'),
@@ -2761,145 +2765,180 @@ function App() {
               const todoIdStr = String(todo.id);
               const isDone = completions.some(c => String(c.todo_id) === todoIdStr && c.date === todayStr);
               
-              return (
-                <li key={`${todo.scheduleMode}-${todoIdStr}`} id={`todo-${todoIdStr}`} className={`todo-item ${isDone ? 'completed' : ''} ${todo.isFailed ? 'failed' : ''} ${editingId === todo.id ? 'editing' : ''} ${lastAddedId === todo.id ? 'newly-added' : ''}`}>
-                  {editingId === todo.id ? (
-                    <div className="edit-container">
-                      <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
-                      <div className="edit-days-row">
-                        {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-                          <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => {
-                            const next = editDays.includes(d) ? editDays.filter(x => x !== d) : [...editDays, d];
-                            setEditDays(next);
-                            syncDaysToRange(next, setRangeStart, setRangeEnd);
-                          }}>{d}</button>
-                        ))}
-                      </div>
-                      <div className="input-helper-row edit-mode">
-                        <div className="left-options">
-                          <label className="holiday-toggle">
-                            <input
-                              type="checkbox"
-                              checked={editExcludeHolidays}
-                              onChange={e => {
-                                const isChecked = e.target.checked;
-                                setEditExcludeHolidays(isChecked);
-                                if (isChecked) {
-                                  const next = ['월', '화', '수', '목', '금'];
-                                  setEditDays(next);
-                                  syncDaysToRange(next, setRangeStart, setRangeEnd);
-                                } else {
-                                  const next = ['월', '화', '수', '목', '금', '토', '일'];
-                                  setEditDays(next);
-                                  syncDaysToRange(next, setRangeStart, setRangeEnd);
-                                }
-                              }}
-                            />
-                            <span>주말 제외</span>
-                          </label>
-                          <button type="button" className="calendar-picker-btn" title="날짜 선택" onClick={handleOpenCalendar}>📅 {rangeStart ? (rangeEnd && rangeEnd !== rangeStart ? `${rangeStart.slice(5)} ~ ${rangeEnd.slice(5)}` : rangeStart.slice(5)) : '날짜'}</button>
-                        </div>
-                        <button type="button" className="clear-form-btn" onClick={() => { resetEditForm(); }}>초기화</button>
-                      </div>
+              const handleTouchStart = (e, id) => {
+                touchStartX.current = e.touches[0].clientX;
+                setSwipingId(id);
+                setSwipeOffset(0);
+              };
 
-                      <div className="time-selector-group scroll-style edit-time-picker">
-                        <div className="ampm-toggle-group">
-                          {['오전', '오후'].map(p => (
-                            <button key={p} className={`ampm-option ${editAmpm === p ? 'selected' : ''}`} onClick={() => setEditAmpm(p)}>{p}</button>
+              const handleTouchMove = (e, id) => {
+                if (swipingId !== id) return;
+                const currentX = e.touches[0].clientX;
+                const diff = currentX - touchStartX.current;
+                let offset = diff;
+                if (Math.abs(diff) > 120) {
+                  offset = diff > 0 ? 120 + (diff - 120) * 0.2 : -120 + (diff + 120) * 0.2;
+                }
+                setSwipeOffset(offset);
+              };
+
+              const handleTouchEnd = (e, todo) => {
+                if (swipingId !== todo.id) return;
+                const threshold = 100;
+                if (swipeOffset > threshold) {
+                  toggleTodo(todo);
+                } else if (swipeOffset < -threshold) {
+                  startEdit(todo);
+                }
+                setSwipingId(null);
+                setSwipeOffset(0);
+              };
+
+              return (
+                <div key={`${todo.scheduleMode}-${todoIdStr}`} className="todo-swipe-container">
+                  <div className={`swipe-background success`} style={{ opacity: swipingId === todo.id && swipeOffset > 20 ? Math.min(swipeOffset / 80, 1) : 0 }}>
+                    <span>✅ 성공 처리</span>
+                  </div>
+                  <div className={`swipe-background edit`} style={{ opacity: swipingId === todo.id && swipeOffset < -20 ? Math.min(Math.abs(swipeOffset) / 80, 1) : 0 }}>
+                    <span>📝 수정하기</span>
+                  </div>
+
+                  <li 
+                    id={`todo-${todoIdStr}`} 
+                    className={`todo-item ${isDone ? 'completed' : ''} ${todo.isFailed ? 'failed' : ''} ${editingId === todo.id ? 'editing' : ''} ${lastAddedId === todo.id ? 'newly-added' : ''} ${swipingId === todo.id ? 'swiping' : ''}`}
+                    style={{ transform: swipingId === todo.id ? `translateX(${swipeOffset}px)` : 'translateX(0)' }}
+                    onTouchStart={(e) => handleTouchStart(e, todo.id)}
+                    onTouchMove={(e) => handleTouchMove(e, todo.id)}
+                    onTouchEnd={(e) => handleTouchEnd(e, todo)}
+                  >
+                    {editingId === todo.id ? (
+                      <div className="edit-container">
+                        <input type="text" value={editValue} onChange={e => setEditValue(e.target.value)} className="edit-input" />
+                        <div className="edit-days-row">
+                          {['월', '화', '수', '목', '금', '토', '일'].map(d => (
+                            <button key={d} className={`edit-day-btn ${editDays.includes(d) ? 'active' : ''}`} onClick={() => {
+                              const next = editDays.includes(d) ? editDays.filter(x => x !== d) : [...editDays, d];
+                              setEditDays(next);
+                              syncDaysToRange(next, setRangeStart, setRangeEnd);
+                            }}>{d}</button>
                           ))}
                         </div>
-                        <div className="scroll-picker-container">
-                          <ScrollPicker options={Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))} value={editHour} onChange={setEditHour} unit="시" />
-                          <ScrollPicker options={Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'))} value={editMinute} onChange={setEditMinute} unit="분" />
-                        </div>
-                      </div>
-
-                      <div className="edit-actions">
-                        <button className="save-btn" onClick={() => saveEdit(todo.id)}>저장</button>
-                        <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="todo-left" onClick={(e) => {
-                        if (e.target.type === 'checkbox') return;
-                        startEdit(todo);
-                      }} style={{ cursor: 'pointer' }}>
-                        <input
-                          id={`dash-chk-${todo.scheduleMode}-${todoIdStr}`}
-                          type="checkbox"
-                          checked={isDone}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            toggleTodo(todo);
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="todo-checkbox"
-                        />
-                        <div className="content-group">
-                          <div className="todo-meta">
-                            {todo.scheduleMode !== 'memo' && todo.time && (
-                              <span className="todo-time-display">⏰ {formatTime(todo.time)}</span>
-                            )}
-                            {todo.scheduleMode !== 'memo' && todo.days && (
-                              <span className="todo-days-tag">{todo.days}</span>
-                            )}
-                            {todo.scheduleMode === 'memo' && (
-                              <span className="memo-badge" style={{
-                                background: 'rgba(16, 185, 129, 0.2)',
-                                color: '#10b981',
-                                border: '1px solid rgba(16, 185, 129, 0.4)',
-                                fontSize: '0.65rem',
-                                padding: '2px 8px',
-                                borderRadius: '10px',
-                                fontWeight: 'bold'
-                              }}>📝 메모</span>
-                            )}
-                            {!!todo.excludeHolidays && <span className="holiday-tag">🚫휴</span>}
-                            {!!todo.isFailed && (
-                              <span className="failed-tag" style={{
-                                background: isDone ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.2)',
-                                color: isDone ? '#fca5a5' : '#f87171',
-                                border: `1px solid ${isDone ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.4)'}`,
-                                fontSize: '0.65rem',
-                                padding: '1px 6px',
-                                borderRadius: '10px',
-                                fontWeight: 'bold',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px'
-                              }}>
-                                {isDone ? '✅ 밀당완료' : '🧘 쉬어감'}
-                              </span>
-                            )}
-                            {isDone && !todo.isFailed && (
-                              <span className="success-tag" style={{
-                                background: 'rgba(16, 185, 129, 0.15)',
-                                color: '#10b981',
-                                border: '1px solid rgba(16, 185, 129, 0.3)',
-                                fontSize: '0.65rem',
-                                padding: '1px 6px',
-                                borderRadius: '10px',
-                                fontWeight: 'bold',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px'
-                              }}>
-                                ✅ 성공
-                              </span>
-                            )}
+                        <div className="input-helper-row edit-mode">
+                          <div className="left-options">
+                            <label className="holiday-toggle">
+                              <input type="checkbox" checked={editExcludeHolidays} onChange={e => {
+                                const isChecked = e.target.checked;
+                                setEditExcludeHolidays(isChecked);
+                                const next = isChecked ? ['월', '화', '수', '목', '금'] : ['월', '화', '수', '목', '금', '토', '일'];
+                                setEditDays(next);
+                                syncDaysToRange(next, setRangeStart, setRangeEnd);
+                              }} />
+                              <span>주말 제외</span>
+                            </label>
+                            <button type="button" className="calendar-picker-btn" title="날짜 선택" onClick={handleOpenCalendar}>📅 {rangeStart ? (rangeEnd && rangeEnd !== rangeStart ? `${rangeStart.slice(5)} ~ ${rangeEnd.slice(5)}` : rangeStart.slice(5)) : '날짜'}</button>
                           </div>
-                          <span className="todo-text">
-                            {todo.scheduleMode === 'schedule' ? '📅 ' :
-                              todo.scheduleMode === 'memo' ? (todo.text.includes('아이디어') ? '💡 ' : '📝 ') :
-                                '🔄 '}{todo.text}
-                          </span>
+                          <button type="button" className="clear-form-btn" onClick={() => { resetEditForm(); }}>초기화</button>
+                        </div>
+
+                        <div className="time-selector-group scroll-style edit-time-picker">
+                          <div className="ampm-toggle-group">
+                            {['오전', '오후'].map(p => (
+                              <button key={p} className={`ampm-option ${editAmpm === p ? 'selected' : ''}`} onClick={() => setEditAmpm(p)}>{p}</button>
+                            ))}
+                          </div>
+                          <div className="scroll-picker-container">
+                            <ScrollPicker options={Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))} value={editHour} onChange={setEditHour} unit="시" />
+                            <ScrollPicker options={Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'))} value={editMinute} onChange={setEditMinute} unit="분" />
+                          </div>
+                        </div>
+
+                        <div className="edit-actions">
+                          <button className="save-btn" onClick={() => saveEdit(todo.id)}>저장</button>
+                          <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
                         </div>
                       </div>
-                      <div className="todo-item-action-hint">탭하여 수정 →</div>
-                    </>
-                  )}
-                </li>
+                    ) : (
+                      <>
+                        <div className="todo-left" onClick={(e) => {
+                          if (e.target.type === 'checkbox') return;
+                          startEdit(todo);
+                        }} style={{ cursor: 'pointer' }}>
+                          <input
+                            id={`dash-chk-${todo.scheduleMode}-${todoIdStr}`}
+                            type="checkbox"
+                            checked={isDone}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              toggleTodo(todo);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="todo-checkbox"
+                          />
+                          <div className="content-group">
+                            <div className="todo-meta">
+                              {todo.scheduleMode !== 'memo' && todo.time && (
+                                <span className="todo-time-display">⏰ {formatTime(todo.time)}</span>
+                              )}
+                              {todo.scheduleMode !== 'memo' && todo.days && (
+                                <span className="todo-days-tag">{todo.days}</span>
+                              )}
+                              {todo.scheduleMode === 'memo' && (
+                                <span className="memo-badge" style={{
+                                  background: 'rgba(16, 185, 129, 0.2)',
+                                  color: '#10b981',
+                                  border: '1px solid rgba(16, 185, 129, 0.4)',
+                                  fontSize: '0.65rem',
+                                  padding: '2px 8px',
+                                  borderRadius: '10px',
+                                  fontWeight: 'bold'
+                                }}>📝 메모</span>
+                              )}
+                              {!!todo.excludeHolidays && <span className="holiday-tag">🚫휴</span>}
+                              {!!todo.isFailed && (
+                                <span className="failed-tag" style={{
+                                  background: isDone ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.2)',
+                                  color: isDone ? '#fca5a5' : '#f87171',
+                                  border: `1px solid ${isDone ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.4)'}`,
+                                  fontSize: '0.65rem',
+                                  padding: '1px 6px',
+                                  borderRadius: '10px',
+                                  fontWeight: 'bold',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}>
+                                  {isDone ? '✅ 밀당완료' : '🧘 쉬어감'}
+                                </span>
+                              )}
+                              {isDone && !todo.isFailed && (
+                                <span className="success-tag" style={{
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10b981',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  fontSize: '0.65rem',
+                                  padding: '1px 6px',
+                                  borderRadius: '10px',
+                                  fontWeight: 'bold',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}>
+                                  ✅ 성공
+                                </span>
+                              )}
+                            </div>
+                            <span className="todo-text">
+                              {todo.scheduleMode === 'schedule' ? '📅 ' :
+                                todo.scheduleMode === 'memo' ? (todo.text.includes('아이디어') ? '💡 ' : '📝 ') :
+                                  '🔄 '}{todo.text}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="todo-item-action-hint">탭하여 수정 →</div>
+                      </>
+                    )}
+                  </li>
+                </div>
               );
             };
 
