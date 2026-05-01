@@ -123,9 +123,9 @@ function App() {
   const [ampm, setAmpm] = useState(defaultT.ampm)
   const [hour, setHour] = useState(defaultT.hour)
   const [minute, setMinute] = useState(defaultT.minute)
-  const [selectedDays, setSelectedDays] = useState([['일', '월', '화', '수', '목', '금', '토'][new Date().getDay()]]) // 당일 요일 기본 선택
+  const [selectedDays, setSelectedDays] = useState(['월', '화', '수', '목', '금']) // 루틴 기본 요일: 월화수목금
   const [excludeHolidays, setExcludeHolidays] = useState(false) // 당일 요일 중심이므로 기본 해제
-  const [scheduleMode, setScheduleMode] = useState('schedule') // 'routine' | 'schedule'
+  const [scheduleMode, setScheduleMode] = useState('routine') // 루틴 모드 기본
   const [listFilter, setListFilter] = useState('schedule') // 'all' | 'routine' | 'schedule'
   const [searchQuery, setSearchQuery] = useState('') // 검색어
   const [isWeeklyView, setIsWeeklyView] = useState(false) // [NAM] Weekly Board Mode
