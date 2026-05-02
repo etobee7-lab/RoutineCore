@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoutineCore Cloud Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .status-running {
+            background: #10b981;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+        }
+        .status-stopped {
+            background: #ef4444;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+        }
+        .status-starting {
+            background: #f59e0b;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .log-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .log-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-12">
+            <div>
+                <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-orange-400">
+                    RoutineCore Cloud Control
+                </h1>
+                <p class="text-slate-400 mt-2">Cloudflare PC Service Manager</p>
+            </div>
+            <div class="glass px-4 py-2 rounded-full text-sm font-mono text-blue-300">
+                Dashboard Port: 4000
+            </div>
+        </header>
+
+        <!-- Service Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Frontend Card -->
+            <div class="glass rounded-2xl p-6 transition-all hover:scale-[1.02]">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 class="text-xl font-semibold">RoutineCore App</h3>
+                        <p class="text-sm text-slate-400">Vite / React (Port 5173)</p>
+                        <div id="frontend-url" class="mt-2"></div>
+                    </div>
+                    <div id="frontend-indicator" class="w-3 h-3 rounded-full status-stopped"></div>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex gap-2">
+                        <button onclick="startService('frontend')" class="flex-1 bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-medium transition">Start</button>
+                        <button onclick="stopService('frontend')" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-medium transition">Stop</button>
+                    </div>
+                    <div class="bg-black/40 rounded-lg p-3 h-48 overflow-y-auto font-mono text-[10px] log-container" id="frontend-logs">
+                        Waiting for logs...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backend Card -->
+            <div class="glass rounded-2xl p-6 transition-all hover:scale-[1.02]">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 class="text-xl font-semibold">RoutineCore API</h3>
+                        <p class="text-sm text-slate-400">Express / Node (Port 3000)</p>
+                        <div id="backend-url" class="mt-2"></div>
+                    </div>
+                    <div id="backend-indicator" class="w-3 h-3 rounded-full status-stopped"></div>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex gap-2">
+                        <button onclick="startService('backend')" class="flex-1 bg-orange-600 hover:bg-orange-700 py-2 rounded-lg font-medium transition">Start</button>
+                        <button onclick="stopService('backend')" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-medium transition">Stop</button>
+                    </div>
+                    <div class="bg-black/40 rounded-lg p-3 h-48 overflow-y-auto font-mono text-[10px] log-container" id="backend-logs">
+                        Waiting for logs...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tunnel Card -->
+            <div class="glass rounded-2xl p-6 transition-all hover:scale-[1.02]">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 class="text-xl font-semibold">RoutineCore Tunnel</h3>
+                        <p class="text-sm text-slate-400">Cloudflare (Port 5173)</p>
+                        <div id="tunnel-url" class="mt-2"></div>
+                    </div>
+                    <div id="tunnel-indicator" class="w-3 h-3 rounded-full status-stopped"></div>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex gap-2">
+                        <button onclick="startService('tunnel')" class="flex-1 bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg font-medium transition">Start</button>
+                        <button onclick="stopService('tunnel')" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-medium transition">Stop</button>
+                    </div>
+                    <div class="bg-black/40 rounded-lg p-3 h-48 overflow-y-auto font-mono text-[10px] log-container" id="tunnel-logs">
+                        Waiting for logs...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cap_Core App Card -->
+            <div class="glass rounded-2xl p-6 transition-all hover:scale-[1.02]">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 class="text-xl font-semibold">Cap_Core App</h3>
+                        <p class="text-sm text-slate-400">Vite / React (Port 3001)</p>
+                        <div id="cap_core-url" class="mt-2"></div>
+                    </div>
+                    <div id="cap_core-indicator" class="w-3 h-3 rounded-full status-stopped"></div>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex gap-2">
+                        <button onclick="startService('cap_core')" class="flex-1 bg-green-600 hover:bg-green-700 py-2 rounded-lg font-medium transition">Start</button>
+                        <button onclick="stopService('cap_core')" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-medium transition">Stop</button>
+                    </div>
+                    <div class="bg-black/40 rounded-lg p-3 h-48 overflow-y-auto font-mono text-[10px] log-container" id="cap_core-logs">
+                        Waiting for logs...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cap_Core Tunnel Card -->
+            <div class="glass rounded-2xl p-6 transition-all hover:scale-[1.02]">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 class="text-xl font-semibold">Cap_Core Tunnel</h3>
+                        <p class="text-sm text-slate-400">Cloudflare (Port 3001)</p>
+                        <div id="tunnel_capcore-url" class="mt-2"></div>
+                    </div>
+                    <div id="tunnel_capcore-indicator" class="w-3 h-3 rounded-full status-stopped"></div>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex gap-2">
+                        <button onclick="startService('tunnel_capcore')" class="flex-1 bg-purple-600 hover:bg-purple-700 py-2 rounded-lg font-medium transition">Start</button>
+                        <button onclick="stopService('tunnel_capcore')" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-medium transition">Stop</button>
+                    </div>
+                    <div class="bg-black/40 rounded-lg p-3 h-48 overflow-y-auto font-mono text-[10px] log-container" id="tunnel_capcore-logs">
+                        Waiting for logs...
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer / Instructions -->
+        <div class="mt-12 glass rounded-2xl p-6 border-blue-500/30">
+            <h4 class="text-lg font-semibold mb-2">PC 이전 가이드 (Migration)</h4>
+            <ul class="text-slate-400 space-y-2 text-sm">
+                <li>• 이 폴더(`RoutineCore`) 전체를 새로운 PC로 복사하세요.</li>
+                <li>• 새 PC에서 Node.js를 설치한 후, `npm install`을 실행하세요.</li>
+                <li>• `start-manager.bat`을 실행하여 이 대시보드를 띄우면 관리가 가능합니다.</li>
+                <li>• Cloudflare Tunnel 설정을 위해 `config.yml`의 hostname을 업데이트하세요.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        async function updateStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                
+                for (const [name, info] of Object.entries(data)) {
+                    const indicator = document.getElementById(`${name}-indicator`);
+                    const logBox = document.getElementById(`${name}-logs`);
+                    const urlDisplay = document.getElementById(`${name}-url`);
+                    
+                    indicator.className = `w-3 h-3 rounded-full status-${info.status}`;
+                    
+                    if (info.logs && info.logs.length > 0) {
+                        logBox.innerHTML = info.logs.map(log => `<div>${log}</div>`).join('');
+                        logBox.scrollTop = logBox.scrollHeight;
+                        
+                        // Extract Cloudflare URL
+                        const logsText = info.logs.join('\n');
+                        const urlMatch = logsText.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i);
+                        if (urlMatch && urlDisplay) {
+                            urlDisplay.innerHTML = `<a href="${urlMatch[0]}" target="_blank" class="inline-flex items-center gap-1 bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-[10px] font-medium hover:bg-blue-500/40 transition border border-blue-500/30">🔗 Open External Link</a>`;
+                        } else if (urlDisplay) {
+                            urlDisplay.innerHTML = '';
+                        }
+                    } else if (urlDisplay) {
+                        urlDisplay.innerHTML = '';
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to update status:', err);
+            }
+        }
+
+        async function startService(name) {
+            await fetch('/api/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            updateStatus();
+        }
+
+        async function stopService(name) {
+            await fetch('/api/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            updateStatus();
+        }
+
+        setInterval(updateStatus, 1000);
+        updateStatus();
+    </script>
+</body>
+</html>
