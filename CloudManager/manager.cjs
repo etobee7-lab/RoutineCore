@@ -72,9 +72,18 @@ function startProcess(name) {
     // On Windows, npm needs to be run via cmd /c
     const cmd = process.platform === 'win32' && p.command === 'npm' ? 'npm.cmd' : p.command;
     
+    const env = { ...process.env };
+    const localAppData = env.LOCALAPPDATA || (env.USERPROFILE ? path.join(env.USERPROFILE, 'AppData', 'Local') : '');
+    if (localAppData) {
+        const userNodePath = path.join(localAppData, 'nodejs');
+        const pathKey = process.platform === 'win32' ? 'Path' : 'PATH';
+        env[pathKey] = `${userNodePath};${env[pathKey] || ''}`;
+    }
+
     p.instance = spawn(cmd, p.args, { 
         cwd: p.cwd || path.join(__dirname, '..'),
-        shell: true 
+        shell: true,
+        env: env
     });
 
     p.instance.stdout.on('data', (data) => {

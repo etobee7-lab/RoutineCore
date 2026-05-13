@@ -46,9 +46,14 @@ class NotificationService {
         // 1. 기존 WebPush 발송 태스크 구성
         const webPushTasks = subscriptions.map(subRow => {
             const subscription = JSON.parse(subRow.subscription);
-            return webpush.sendNotification(subscription, JSON.stringify(payload))
+            return webpush.sendNotification(subscription, JSON.stringify(payload), {
+                headers: {
+                    'Urgency': 'high'
+                },
+                TTL: 86400 // 1 day
+            })
                 .catch(err => {
-                    if (err.statusCode === 404 || err.statusCode === 410) {
+                    if ([400, 401, 403, 404, 410].includes(err.statusCode)) {
                         return { type: 'CLEANUP', subscription: subRow.subscription };
                     }
                     console.error('[PUSH-ERROR]', err.message);

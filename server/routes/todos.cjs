@@ -7,6 +7,25 @@ const { verifyToken } = require('../middleware/auth.cjs');
 router.get('/', verifyToken, async (req, res) => {
     try {
         const { username } = req.user;
+
+        // [남개발 부장] 스마트 리셋 엔진 가동! (자정에 컴이 꺼져있어도 접속 시 자동 초기화 🛡️)
+        const [userRows] = await pool.query("SELECT lastResetDate FROM users WHERE username = ?", [username]);
+        
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const todayStr = new Date(now.getTime() - offset).toISOString().split('T')[0];
+        
+        if (userRows.length > 0) {
+            const lastReset = userRows[0].lastResetDate;
+            // DB의 DATE 타입은 JS Date 객체로 올 수 있으므로 변환 처리
+            const lastResetStr = lastReset ? (new Date(new Date(lastReset).getTime() - offset).toISOString().split('T')[0]) : null;
+
+            if (lastResetStr !== todayStr) {
+                const resetService = require('../services/resetService.cjs');
+                await resetService.performDailyReset(username);
+            }
+        }
+
         const query = `
             SELECT id, text, time, completed, days, excludeHolidays, isFailed, 'routine' as scheduleMode, username, createdAt, lastNotifiedDate, NULL as activatedWeek, startDate, endDate FROM routines WHERE LOWER(username) = LOWER(?)
             UNION ALL
@@ -109,7 +128,19 @@ router.patch('/:id', verifyToken, async (req, res) => {
                 if (tableFields.length > 0) {
                     tableValues.push(id);
                     await pool.query(`UPDATE ${table} SET ${tableFields.join(', ')} WHERE id = ?`, tableValues);
-                    return res.json({ success: true, table }); // 업데이트 성공 시 즉시 반환
+                    
+                    // [남개발 부장] 원격 기기 알림 해제 브로드캐스트
+                    if (req.body.completed === true) {
+                        (async () => {
+                            try {
+                                const [subs] = await pool.query("SELECT subscription FROM push_subscriptions WHERE username = ?", [req.user.username]);
+                                const notificationService = require('../../services/notificationService.cjs');
+                                await notificationService.broadcast(subs, { type: 'DISMISS', todoId: id });
+                            } catch (e) { console.error('[DISMISS-ERROR]', e.message); }
+                        })();
+                    }
+                    
+                    return res.json({ success: true, table });
                 }
             } catch (tableErr) {
                 console.error(`Error updating table ${table}:`, tableErr.message);
@@ -188,19 +219,31 @@ completionsRouter.get('/', verifyToken, async (req, res) => {
 
 // POST /api/daily-completions/toggle - 날짜별 완료 토글
 completionsRouter.post('/toggle', verifyToken, async (req, res) => {
+    // [남개발 팀장] 동시성 예외 및 데이터 정합성 보장을 위한 트랜잭션 커넥션 획득 🛡️
+    const connection = await pool.getConnection();
     try {
         const { todo_id, date } = req.body;
         const { username } = req.user;
-        if (!todo_id || !date) return res.status(400).json({ error: "필수 정보 누락" });
+        if (!todo_id || !date) {
+            connection.release();
+            return res.status(400).json({ error: "필수 정보 누락" });
+        }
 
-        // 미래 날짜 성공 처리 방지
-        const todayStr = new Date().toISOString().split('T')[0];
+        // [남개발 부장] 미래 날짜 성공 처리 방지 (KST 기준 보정)
+        const nowKst = new Date(new Date().getTime() + (9 * 60 * 60 * 1000));
+        const todayStr = nowKst.toISOString().split('T')[0];
+        
         if (date > todayStr) {
+            console.log(`[REJECT] Future date attempt: target=${date}, server_today(KST)=${todayStr}`);
+            connection.release();
             return res.status(400).json({ error: "미래 날짜는 미리 성공 처리할 수 없습니다." });
         }
 
-        const [existing] = await pool.query(
-            "SELECT * FROM daily_completions WHERE todo_id = ? AND date = ?",
+        // 트랜잭션 시작 및 비관적 락(FOR UPDATE)을 위한 대기 처리
+        await connection.beginTransaction();
+
+        const [existing] = await connection.query(
+            "SELECT * FROM daily_completions WHERE todo_id = ? AND date = ? FOR UPDATE",
             [todo_id, date]
         );
 
@@ -208,13 +251,13 @@ completionsRouter.post('/toggle', verifyToken, async (req, res) => {
         let newStatus = false;
 
         if (existing.length > 0) {
-            await pool.query(
+            await connection.query(
                 "DELETE FROM daily_completions WHERE todo_id = ? AND date = ?",
                 [todo_id, date]
             );
             newStatus = false;
         } else {
-            await pool.query(
+            await connection.query(
                 "INSERT INTO daily_completions (todo_id, date, username, createdAt) VALUES (?, ?, ?, ?)",
                 [todo_id, date, username, Date.now()]
             );
@@ -225,12 +268,41 @@ completionsRouter.post('/toggle', verifyToken, async (req, res) => {
         if (isToday) {
             const tables = ['routines', 'schedules'];
             for (const table of tables) {
-                await pool.query(`UPDATE ${table} SET completed = ? WHERE id = ? AND username = ?`, [newStatus, todo_id, username]);
+                await connection.query(`UPDATE ${table} SET completed = ? WHERE id = ? AND username = ?`, [newStatus, todo_id, username]);
             }
         }
 
+        // 모든 상태 일치 확인 후 일괄 커밋 실행 ✅
+        await connection.commit();
+        connection.release();
+
         res.json({ success: true, completed: newStatus });
+
+        // [남개발 부장] 원격 기기의 알림 해제를 위해 브로드캐스트 전송 (비동기 처리) 📡
+        if (newStatus) {
+            (async () => {
+                try {
+                    const [subs] = await pool.query("SELECT subscription FROM push_subscriptions WHERE username = ?", [username]);
+                    const dismissPayload = {
+                        type: 'DISMISS',
+                        todoId: todo_id
+                    };
+                    const notificationService = require('../../services/notificationService.cjs');
+                    await notificationService.broadcast(subs, dismissPayload);
+                } catch (e) {
+                    console.error('[DISMISS-ERROR]', e.message);
+                }
+            })();
+        }
     } catch (err) {
+        // 오류 발생 시 원자적 롤백 수행 🔄
+        try {
+            await connection.rollback();
+        } catch (rollbackErr) {
+            console.error('[ROLLBACK-ERROR]', rollbackErr.message);
+        }
+        connection.release();
+        console.error("POST /api/daily-completions/toggle Error:", err.message);
         res.status(500).json({ error: err.message });
     }
 });

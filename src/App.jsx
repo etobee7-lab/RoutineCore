@@ -14,6 +14,8 @@ import { useTodos } from './hooks/useTodos'
 import { usePWA } from './hooks/usePWA'
 import { useAlarm, ALARM_SOUNDS } from './hooks/useAlarm'
 import { useNotifications } from './hooks/useNotifications'
+import { isKoreanHoliday } from './services/holiday'
+
 
 
 const AVATARS = [
@@ -713,12 +715,22 @@ function App() {
         const isScheduledToday = days.includes(currentDay);
         const isTimeMatch = todo.time === currentTime;
         const excludeVal = !!Number(todo.excludeHolidays);
-        const isNotExcludingWeekend = !(excludeVal && isWeekend);
+        
+        // [남개발 팀장] 실제 한국 공휴일/대체공휴일 및 주말 일치 여부 정밀 판별 🇰🇷
+        const todayStr = `${actualNow.getFullYear()}-${String(actualNow.getMonth() + 1).padStart(2, '0')}-${String(actualNow.getDate()).padStart(2, '0')}`;
+        const isTodayHoliday = isKoreanHoliday(todayStr);
+        const shouldSkipHoliday = excludeVal && isTodayHoliday;
 
         // 알람 조건 검사 (로그 출력으로 원인 파악 용이하게 함)
         if (isTimeMatch && !todo.completed) {
           if (!isScheduledToday) {
             // console.log(`[ALARM_SKIP] ${todo.text} (NOT scheduled for ${currentDay})`);
+            return;
+          }
+
+          // [남개발 팀장] 공휴일 제외 옵션이 활성화되었고 오늘이 공휴일인 경우 지능적 알람 스킵 🚫
+          if (shouldSkipHoliday) {
+            // console.log(`[ALARM_SKIP] ${todo.text} is skipped due to Holiday/Weekend Exclusion (Date: ${todayStr})`);
             return;
           }
 
@@ -890,8 +902,8 @@ function App() {
     else if (text.includes('반')) setMinute('30');
     setAmpm(parsedTime.ampm);  // 최종 ampm 설정 (시간 파싱 결과 반영됨)
 
-    // 3. 업무명 정제 (7시 47분 보호막 소거, '해/줘' 단독 글자 필터 제외) 🛡️
-    const filter = /(일정|루틴|메모|오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
+    // 3. 업무명 정제 (오타 및 변종 키워드 필터링 강화) 🛡️
+    const filter = /(일정|일성|일전|루틴|루트|리틴|메모|메노|오전|오후|아침|점심|저녁|밤|새벽|(?<=시\s*)반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
     let cleaned = text.replace(filter, '').replace(/\s+/g, ' ').trim();
     if (!cleaned) cleaned = text.trim();
     
@@ -963,7 +975,7 @@ function App() {
   };
 
   const addTodo = async (overrideTime = null) => {
-    const filter = /(일정|루틴|메모|오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
+    const filter = /(일정|루틴|메모|오전|오후|아침|점심|저녁|밤|새벽|(?<=시\s*)반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
     let rawVal = inputValue.trim();
     let cleaned = rawVal.replace(filter, '').replace(/\s+/g, ' ').trim();
     if (!cleaned) cleaned = rawVal;
@@ -996,9 +1008,15 @@ function App() {
         time = `${String(h).padStart(2, '0')}:${useMinute}`;
         days = selectedDays.join(',');
         
-        const duplicate = todos.find(t => t.time === time);
+        const duplicate = todos.find(t => {
+          if (t.time !== time) return false;
+          // [남개발 부장] 시간만 같다고 중복이 아니라, 요일까지 겹칠 때만 경고하도록 로직 정교화
+          const existingDays = (t.days || '').split(',');
+          const newDays = selectedDays;
+          return newDays.some(d => existingDays.includes(d));
+        });
         if (duplicate) {
-          if (!window.confirm(`중복된 시간(${formatTime(time)})에 '${duplicate.text}' 일정이 이미 있습니다. 추가하시겠습니까?`)) return;
+          if (!window.confirm(`이미 중복된 시간(${formatTime(time)})에 요일이 겹치는 '${duplicate.text}' 일정이 있습니다. 그래도 추가하시겠습니까?`)) return;
         }
       }
 
@@ -1084,7 +1102,7 @@ function App() {
         const todoToUpdate = todos.find(t => String(t.id) === String(id));
         const mode = todoToUpdate ? todoToUpdate.scheduleMode : null;
 
-        const filter = /(일정|루틴|메모|오전|오후|아침|점심|저녁|밤|새벽|반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
+        const filter = /(일정|일성|일전|루틴|루트|리틴|메모|메노|오전|오후|아침|점심|저녁|밤|새벽|(?<=시\s*)반|(\d+)\s*시|(\d+)\s*분|한시|두시|세시|네시|다섯시|여섯시|일곱시|여덟시|아홉시|열시|열한시|열두시|예약|등록|해줘)/g;
         let cleanedEditValue = editValue.replace(filter, '').replace(/\s+/g, ' ').trim();
         if (!cleanedEditValue) cleanedEditValue = editValue;
 
@@ -1131,14 +1149,16 @@ function App() {
     // [남개발 부장] 중복 클릭 방지 락
     const todoIdStr = String(todo.id);
     if (togglingIdsRef.current.has(todoIdStr)) return;
-
-    // [남개발 부장] 미래 날짜 성공 처리 방지 로직 (숫자형 비교로 오차 제로화)
-    const dateStr = (targetDate || toStdDateStr(new Date())).slice(0, 10);
-    const todayLimit = toStdDateStr(new Date());
+    // [남개발 부장] 미래 날짜 성공 처리 방지 로직 (동일 시점 기준 비교로 오차 제거)
+    const now = new Date();
+    const todayLimitStr = toStdDateStr(now);
+    const dateStr = (targetDate || todayLimitStr).slice(0, 10);
     
     const d1 = Number(dateStr.replace(/-/g, ''));
-    const d2 = Number(todayLimit.replace(/-/g, ''));
+    const d2 = Number(todayLimitStr.replace(/-/g, ''));
     
+    console.log(`[DEBUG] toggleTodo: target=${dateStr}(${d1}), limit=${todayLimitStr}(${d2})`);
+
     if (d1 > d2) {
       alert("미래 날짜는 미리 성공 처리할 수 없습니다.");
       return;
@@ -1154,7 +1174,7 @@ function App() {
     }
 
     // 2. 하위 호환성을 위해 todos의 completed 상태도 업데이트 (오늘 날짜인 경우)
-    if (dateStr === todayLimit) {
+    if (dateStr === todayLimitStr) {
       setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: !isAlreadyDone } : t));
     }
 
@@ -1174,7 +1194,7 @@ function App() {
       } else {
         setCompletions(prev => prev.filter(c => !(String(c.todo_id) === todoIdStr && c.date === dateStr)));
       }
-      if (dateStr === todayLimit) {
+      if (dateStr === todayLimitStr) {
         setTodos(prev => prev.map(t => t.id === todo.id ? { ...t, completed: isAlreadyDone } : t));
       }
     } finally {
@@ -1222,12 +1242,19 @@ function App() {
     setTodos(prev => prev.map(t => String(t.id) === todoIdStr ? { ...t, completed: true, isFailed: false } : t));
 
     try {
+      // 1. 투두 상태 업데이트 (completed, isFailed, lastNotifiedDate)
       await fetchAPI(`${API_URLS.TODOS}/${todoId}`, {
         method: 'PATCH',
         body: JSON.stringify({ completed: true, isFailed: false, lastNotifiedDate: today, scheduleMode: alert.todo.scheduleMode })
       });
 
-      // 3초 후 락 해제 및 최신화
+      // 2. [중요] 일일 완료 기록(daily_completions)에 저장하여 리스트 반영 보장
+      await fetchAPI(`${API_URLS.COMPLETIONS}/toggle`, {
+        method: 'POST',
+        body: JSON.stringify({ todo_id: todoId, date: today, username: currentUser.split('=')[0] })
+      });
+
+      // 1초 후 락 해제 및 최신화 (더 빠른 피드백을 위해 3초 -> 1초 단축)
       setTimeout(() => {
         updateTogglingIds(prev => {
           const next = new Set(prev);
@@ -1235,7 +1262,7 @@ function App() {
           return next;
         });
         fetchTodos();
-      }, 3000);
+      }, 1000);
     } catch (e) {
       console.error("[ALARM] Confirmation error:", e);
       // 에러 발생 시 락 해제
@@ -1260,13 +1287,24 @@ function App() {
     setTodos(prev => prev.map(t => String(t.id) === todoIdStr ? { ...t, completed: false, isFailed: true } : t));
 
     try {
+      // 1. 투두 상태 업데이트
       await fetchAPI(`${API_URLS.TODOS}/${todoId}`, {
         method: 'PATCH',
         body: JSON.stringify({ completed: false, isFailed: true, lastNotifiedDate: today, scheduleMode: alert.todo.scheduleMode })
       });
 
+      // 2. 만약 이미 '성공' 상태였다면 완료 기록 제거 (실수로 성공 눌렀다가 다시 팝업 띄웠을 때 대비)
+      const isAlreadyDone = completions.some(c => String(c.todo_id) === todoIdStr && c.date === today);
+      if (isAlreadyDone) {
+        await fetchAPI(`${API_URLS.COMPLETIONS}/toggle`, {
+          method: 'POST',
+          body: JSON.stringify({ todo_id: todoId, date: today, username: currentUser.split('=')[0] })
+        });
+      }
+
       speakText(`${alert.todo.text} 일정이 쉬어감으로 변경되었습니다.`);
 
+      // 1초 후 락 해제 (더 빠른 피드백을 위해 3초 -> 1초 단축)
       setTimeout(() => {
         updateTogglingIds(prev => {
           const next = new Set(prev);
@@ -1274,7 +1312,7 @@ function App() {
           return next;
         });
         fetchTodos();
-      }, 3000);
+      }, 1000);
     } catch (e) {
       console.error("[ALARM] Failure error:", e);
       updateTogglingIds(prev => { const next = new Set(prev); next.delete(todoIdStr); return next; });
@@ -1685,7 +1723,7 @@ function App() {
           background: '#0f172a', zIndex: 9999, overflowY: 'auto',
           display: 'flex', flexDirection: 'column', alignItems: 'center'
         }}>
-          <div style={{ width: '100%', maxWidth: '480px', flex: 1 }}>
+          <div style={{ width: '100%', maxWidth: '650px', flex: 1 }}>
             <ScheduleOnlyCalendar 
               todos={todos} 
               completions={completions}
@@ -2100,17 +2138,28 @@ function App() {
                       </ul>
                     </div>
 
-                    <div className="tip-card">
+                    <div className="tip-card" style={{ border: '1px solid rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.03)' }}>
                       <div className="tip-header">
-                        <span className="tip-icon">🔋</span>
-                        <h4 className="tip-title">알람 누락 방지 (중요)</h4>
+                        <span className="tip-icon">📱</span>
+                        <h4 className="tip-title" style={{ color: '#fbbf24' }}>휴대폰 최소 설정 사용법 (알람 보장)</h4>
                       </div>
                       <p className="tip-desc">
-                        안드로이드 등 일부 기기에서는 배터리 절약을 위해 알람을 차단할 수 있습니다.
+                        화면이 꺼져 있을 때 문자나 카카오톡처럼 우렁찬 소리와 함께 알람이 즉시 깨어나게 만드는 <strong>딱 2가지 핵심 최소 설정</strong>입니다.
                       </p>
-                      <ul className="tip-list">
-                        <li>휴대폰 설정 &gt; 애플리케이션 &gt; <strong>브라우저 앱(Chrome 등)</strong> 선택</li>
-                        <li>배터리 &gt; <strong>제한 없음</strong> 또는 <strong>최적화 제외</strong>로 설정해 주세요.</li>
+                      <ul className="tip-list" style={{ gap: '12px', display: 'flex', flexDirection: 'column', listStyle: 'none', paddingLeft: 0 }}>
+                        <li style={{ marginBottom: '8px' }}>
+                          <strong style={{ color: '#fff', fontSize: '0.85rem', display: 'block', marginBottom: '4px' }}>🔋 1단계: 배터리 절전 해제 (15초)</strong>
+                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', paddingLeft: '10px', borderLeft: '2px solid #6366f1', lineHeight: '1.4' }}>
+                            앱 아이콘 <strong>길게 누르기</strong> ➡️ <strong>ⓘ 아이콘</strong> 또는 <strong>'앱 정보(App info)'</strong> 클릭 ➡️ <strong>배터리</strong> ➡️ <strong>'제한 없음'</strong><br />
+                            <span style={{ fontSize: '0.75rem', opacity: 0.7, color: '#f43f5e' }}>※ 안 나타날 때: 폰 설정 ➡️ 애플리케이션 (또는 앱) ➡️ Chrome (또는 RoutineCore) 클릭</span>
+                          </div>
+                        </li>
+                        <li>
+                          <strong style={{ color: '#fff', fontSize: '0.85rem', display: 'block', marginBottom: '4px' }}>🔔 2단계: 알림 중요도 카톡급 격상 (30초)</strong>
+                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', paddingLeft: '10px', borderLeft: '2px solid #10b981', lineHeight: '1.4' }}>
+                            위 상세 정보에서 <strong>알림</strong> ➡️ <strong>알림 카테고리</strong> ➡️ 내 도메인 주소(또는 webpush) <strong>글자 자체 클릭</strong> ➡️ 알림 방식을 <strong>'소리 및 팝업' (긴급)</strong>으로 격상
+                          </div>
+                        </li>
                       </ul>
                     </div>
 
@@ -2725,10 +2774,6 @@ function App() {
             }
 
             const sorted = [...filtered].sort((a, b) => {
-              const compA = completions.some(c => String(c.todo_id) === String(a.id) && c.date === todayStr);
-              const compB = completions.some(c => String(c.todo_id) === String(b.id) && c.date === todayStr);
-              if (compA !== compB) return compA ? 1 : -1;
-
               const timeA = a.time || '99:99';
               const timeB = b.time || '99:99';
               if (timeA !== timeB) {
@@ -2747,6 +2792,20 @@ function App() {
               const todoIdStr = String(todo.id);
               const isDone = completions.some(c => String(c.todo_id) === todoIdStr && c.date === todayStr);
               
+              // [남개발 부장] 5분의 여유 시간(Grace Period)을 부여하여 지연 판단 로직 정교화
+              const now = currentTime;
+              const isPastDue = (() => {
+                if (!todo.time) return false;
+                const [h, m] = todo.time.split(':').map(Number);
+                const target = new Date(now);
+                target.setHours(h, m, 0, 0);
+                // 예정 시간보다 5분 넘게 지났을 때만 지연(밀당성공 대상)으로 간주
+                return now.getTime() > (target.getTime() + 5 * 60 * 1000);
+              })();
+
+              const isPullPushSuccess = isDone && (todo.isFailed || isPastDue);
+              const isEffectivelyFailed = (todo.isFailed || isPastDue) && !isPullPushSuccess;
+
               const handleTouchStart = (e, id) => {
                 touchStartX.current = e.touches[0].clientX;
                 setSwipingId(id);
@@ -2787,7 +2846,7 @@ function App() {
 
                   <li 
                     id={`todo-${todoIdStr}`} 
-                    className={`todo-item ${isDone ? 'completed' : ''} ${todo.isFailed ? 'failed' : ''} ${editingId === todo.id ? 'editing' : ''} ${lastAddedId === todo.id ? 'newly-added' : ''} ${swipingId === todo.id ? 'swiping' : ''}`}
+                    className={`todo-item ${isDone ? 'completed' : ''} ${((todo.isFailed || isPastDue) && !isDone) ? 'failed' : ''} ${editingId === todo.id ? 'editing' : ''} ${lastAddedId === todo.id ? 'newly-added' : ''} ${swipingId === todo.id ? 'swiping' : ''}`}
                     style={{ transform: swipingId === todo.id ? `translateX(${swipeOffset}px)` : 'translateX(0)' }}
                     onTouchStart={(e) => handleTouchStart(e, todo.id)}
                     onTouchMove={(e) => handleTouchMove(e, todo.id)}
@@ -2836,6 +2895,23 @@ function App() {
 
                         <div className="edit-actions">
                           <button className="save-btn" onClick={() => saveEdit(todo.id)}>저장</button>
+                          <button className="complete-toggle-btn" 
+                            style={{
+                              flex: 1.5,
+                              padding: '0.5rem',
+                              borderRadius: '8px',
+                              border: 'none',
+                              background: isDone ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                              color: isDone ? '#10b981' : '#60a5fa',
+                              fontWeight: '800',
+                              cursor: 'pointer'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleTodo(todo);
+                            }}>
+                            {isDone ? '✅ 성공됨' : '✔️ 성공체크'}
+                          </button>
                           <button className="cancel-btn" onClick={() => setEditingId(null)}>취소</button>
                         </div>
                       </div>
@@ -2876,11 +2952,11 @@ function App() {
                                 }}>📝 메모</span>
                               )}
                               {!!todo.excludeHolidays && <span className="holiday-tag">🚫휴</span>}
-                              {!!todo.isFailed && (
+                              {(todo.isFailed || isPastDue) && (
                                 <span className="failed-tag" style={{
-                                  background: isDone ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.2)',
-                                  color: isDone ? '#fca5a5' : '#f87171',
-                                  border: `1px solid ${isDone ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.4)'}`,
+                                  background: isPullPushSuccess ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.2)',
+                                  color: isPullPushSuccess ? '#fca5a5' : '#f87171',
+                                  border: `1px solid ${isPullPushSuccess ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.4)'}`,
                                   fontSize: '0.65rem',
                                   padding: '1px 6px',
                                   borderRadius: '10px',
@@ -2889,10 +2965,10 @@ function App() {
                                   alignItems: 'center',
                                   gap: '3px'
                                 }}>
-                                  {isDone ? '✅ 밀당완료' : '🧘 쉬어감'}
+                                  {isPullPushSuccess ? '✅ 밀당성공' : '🧘 쉬어감'}
                                 </span>
                               )}
-                              {isDone && !todo.isFailed && (
+                              {isDone && !(todo.isFailed || isPastDue) && (
                                 <span className="success-tag" style={{
                                   background: 'rgba(16, 185, 129, 0.15)',
                                   color: '#10b981',

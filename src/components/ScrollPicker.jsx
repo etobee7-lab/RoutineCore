@@ -9,10 +9,7 @@ function ScrollPicker({ options, value, onChange, unit }) {
   // 초기 위치 설정 (중앙 섹션의 선택된 값으로)
   useEffect(() => {
     if (scrollRef.current) {
-      const valInt = parseInt(value);
-      const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
       let selectedIndex = options.indexOf(value);
-      if (selectedIndex === -1) selectedIndex = options.indexOf(roundedVal);
       if (selectedIndex === -1) selectedIndex = 0;
 
       scrollRef.current.scrollTop = (middleStart + selectedIndex) * itemHeight;
@@ -25,10 +22,7 @@ function ScrollPicker({ options, value, onChange, unit }) {
       const currentScrollTop = scrollRef.current.scrollTop;
       const currentIndex = Math.round(currentScrollTop / itemHeight) % options.length;
 
-      const valInt = parseInt(value);
-      const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
       let targetIndex = options.indexOf(value);
-      if (targetIndex === -1) targetIndex = options.indexOf(roundedVal);
       if (targetIndex === -1) targetIndex = 0;
 
       if (currentIndex !== targetIndex) {
@@ -54,10 +48,7 @@ function ScrollPicker({ options, value, onChange, unit }) {
     const index = Math.round(scrollTop / itemHeight) % options.length;
     const selectedValue = options[index];
 
-    const valInt = parseInt(value);
-    const roundedVal = String(Math.round(valInt / 5) * 5 % 60).padStart(2, '0');
-
-    if (selectedValue && selectedValue !== value && selectedValue !== roundedVal) {
+    if (selectedValue && selectedValue !== value) {
       onChange(selectedValue);
     }
   };

@@ -3,6 +3,11 @@ require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'routine-core-secret-key-2026';
 
+// [남개발 팀장] 안전한 JWT 키 설정 검증 및 가동 로그 출력 🛡️
+if (!process.env.JWT_SECRET) {
+    console.warn('\x1b[33m%s\x1b[0m', '[SECURITY WARNING] JWT_SECRET is not configured in your .env file! Falling back to default insecure key. Please configure a strong JWT_SECRET in production.');
+}
+
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];

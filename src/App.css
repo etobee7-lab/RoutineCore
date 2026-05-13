@@ -67,6 +67,7 @@ body {
   width: 100%;
   max-width: 650px;
   margin: 0 auto;
+  padding: 0;
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;

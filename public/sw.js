@@ -49,10 +49,26 @@ self.addEventListener('push', (event) => {
         }
     }
 
+    // [남개발 부장] 원격 알림 해제 기능 (다른 기기에서 확인 시 현재 기기의 알림을 닫음) 🚀
+    if (data.type === 'DISMISS') {
+        event.waitUntil(
+            self.registration.getNotifications().then(notifications => {
+                notifications.forEach(notification => {
+                    if (notification.data && String(notification.data.todoId) === String(data.todoId)) {
+                        notification.close();
+                    }
+                });
+            })
+        );
+        return;
+    }
+
     const options = {
         body: data.body,
         icon: data.icon || '/logo192.png',
         badge: '/logo192.png',
+        tag: `todo-${data.data ? data.data.todoId : 'general'}`, // [남개발 부장] 중복 알림 방지용 태그 추가
+        renotify: true, // [남개발 부장] 태그가 같아도 새 알림으로 알림음 발생
         vibrate: [200, 100, 200],
         data: data.data || {},
         requireInteraction: true,
@@ -65,8 +81,10 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             const isAppFocused = clientList.some(client => client.focused);
-            if (isAppFocused) {
-                console.log('[SW] App is focused, skipping push notification');
+            // [남개발 부장] 알람류(todo-*)는 사용자의 인지(소리/진동)를 보장하기 위해 앱 포커스 상태여도 푸시를 무조건 띄웁니다!
+            const isAlarm = options.tag && options.tag.startsWith('todo-');
+            if (isAppFocused && !isAlarm) {
+                console.log('[SW] App is focused, skipping general push notification');
                 return;
             }
             return self.registration.showNotification(data.title, options);
@@ -87,11 +105,19 @@ self.addEventListener('notificationclick', (event) => {
     const apiUrl = `${apiHost}/api/todos/${todoId}`;
 
     if (action === 'confirm') {
+        const toggleUrl = `${apiHost}/api/daily-completions/toggle`;
         event.waitUntil(
             fetch(apiUrl, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ completed: true })
+            }).then(() => {
+                // [중요] 일일 완료 기록 동기화
+                return fetch(toggleUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ todo_id: todoId, date: event.notification.data.date, username: username })
+                });
             }).then(() => {
                 return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
             }).then((clientList) => {

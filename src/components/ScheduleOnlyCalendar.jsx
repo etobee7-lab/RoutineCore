@@ -168,9 +168,6 @@ const ScheduleOnlyCalendar = ({
       <style>{`
         @media (max-width: 600px) {
           .premium-header-sticky { padding: 15px 15px 12px 15px !important; }
-          .brand-logo h1 { font-size: 1.1rem !important; }
-          .brand-logo span { font-size: 0.9rem !important; }
-          .brand-logo img { width: 34px !important; height: 34px !important; }
           .points-pill { padding: 5px 10px !important; gap: 8px !important; border-radius: 14px !important; }
           .points-pill span { font-size: 0.9rem !important; }
           .points-pill .progress-mini { width: 25px !important; height: 30px !important; }
@@ -191,100 +188,69 @@ const ScheduleOnlyCalendar = ({
         }
       `}</style>
       
-      <div className="premium-header-sticky" style={{
-        background: 'rgba(15, 23, 42, 0.9)',
-        padding: '12px 15px 10px 15px', borderRadius: '0 0 20px 20px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-        position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(20px)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <div className="brand-logo" onClick={closeCalendar} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-            <img src="/logo512.png" alt="Logo" style={{ width: '30px', height: '30px', filter: 'drop-shadow(0 0 8px rgba(96, 165, 250, 0.4))' }} />
-            <div style={{ marginLeft: '8px' }}>
-              <h1 style={{ fontSize: '1.05rem', margin: 0, color: '#fff', fontWeight: '900', letterSpacing: '-0.8px', lineHeight: 1.1 }}>Routine</h1>
-              <span style={{ fontSize: '0.85rem', color: '#60a5fa', fontWeight: '800' }}>Core</span>
+      <div className="main-sticky-wrapper" style={{ padding: '12px 15px 10px 15px', borderRadius: '0 0 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="app-header-premium" style={{ margin: 0 }}>
+          <div className="header-topmost-row">
+            <div className="brand-logo" onClick={closeCalendar}>
+              <img src="/logo512.png" alt="Routine Core Logo" className="header-logo-img" />
+              <h1>Routine<br /><span>Core</span></h1>
             </div>
-          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="points-pill" style={{ 
-              display: 'flex', alignItems: 'center', gap: '8px', 
-              padding: '5px 10px', background: 'rgba(255,255,255,0.04)', 
-              borderRadius: '14px', border: '1px solid rgba(255,255,255,0.08)' 
-            }}>
-              <span style={{ fontSize: '0.9rem', fontWeight: '900', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px' }}>💰 {userPoints.toLocaleString()}</span>
-              <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }}></div>
-              <div className="progress-mini" style={{ width: '22px', height: '26px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', position: 'relative', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ width: '100%', height: `${progress}%`, background: 'linear-gradient(to top, #3b82f6, #60a5fa)', position: 'absolute', bottom: 0, transition: 'height 0.8s' }}></div>
+            <div className="user-profile-compact" onClick={() => setShowMyPage(true)}>
+              <div className="profile-info-left">
+                <div className="points-pill-small">💰 {userPoints.toLocaleString()}</div>
+                <div className="progress-mini-row">
+                  <div className="progress-mini-bar-bg">
+                    <div className="progress-mini-bar-fill" style={{ height: `${progress}%` }}></div>
+                  </div>
+                  <span className="progress-mini-text">{Math.round(progress)}%</span>
+                </div>
+              </div>
+              <div className="profile-avatar-group">
+                <div className="header-avatar-circle">
+                  <RenderAvatar avatar={userAvatar} />
+                </div>
+                <span className="user-name-label">{currentUser}</span>
               </div>
             </div>
 
-            <div className="user-profile-pill" style={{ 
-              display: 'flex', alignItems: 'center', gap: '6px', 
-              padding: '4px 8px 4px 4px', background: 'rgba(96, 165, 250, 0.1)', 
-              borderRadius: '24px', border: '1px solid rgba(96, 165, 250, 0.2)',
-              cursor: 'pointer'
-            }} onClick={() => setShowMyPage(true)}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '2px solid #60a5fa', padding: '1px', background: 'rgba(96, 165, 250, 0.1)', overflow: 'hidden' }}>
-                <RenderAvatar avatar={userAvatar} />
-              </div>
-              <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: '700' }}>{currentUser}</span>
-            </div>
-
-            <button className="exit-btn" onClick={() => {
+            <button className="top-logout-btn" onClick={() => {
               setIsAuthenticated(false);
               setCurrentUser('');
               localStorage.removeItem('routine_auth');
               localStorage.removeItem('routine_user');
-            }} style={{
-              background: 'rgba(239, 68, 68, 0.12)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.25)',
-              padding: '7px 10px', borderRadius: '14px', fontSize: '0.85rem', fontWeight: '800'
-            }}>🚪</button>
+            }}>🚪 나가기</button>
           </div>
-        </div>
 
-        <div className="header-action-grid">
-          <button className="nav-btn calendar active" onClick={closeCalendar}>📝 일정등록</button>
-          <button className="nav-btn room" onClick={() => { setShowMyPage(false); setShowSuccessRoom(true); }}>🏛️ 성공의 방</button>
-          <button className="nav-btn my" onClick={() => { setShowSuccessRoom(false); setShowMyPage(true); }}>👤 MY</button>
+          <div className="header-action-grid">
+            <button className="nav-btn calendar active" onClick={closeCalendar}>📝 일정등록</button>
+            <button className="nav-btn room" onClick={() => { setShowMyPage(false); setShowSuccessRoom(true); }}>🏛️ 성공의 방</button>
+            <button className="nav-btn my" onClick={() => { setShowSuccessRoom(false); setShowMyPage(true); }}>👤 MY</button>
+            {showInstallBtn && (
+              <button className="nav-btn install" onClick={handleInstallClick} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 'bold' }}>📱 앱 설치</button>
+            )}
+          </div>
         </div>
       </div>
 
       <div style={{ padding: '15px 14px' }}>
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px',
-          border: '1px solid rgba(255,255,255,0.06)', marginBottom: '12px'
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px',
+          padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px',
+          border: '1px solid rgba(255,255,255,0.06)', marginBottom: '15px'
         }}>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="nav-arrow" style={{ width: '34px', height: '34px', borderRadius: '10px' }} onClick={() => viewMode === 'week' ? moveWeek(-1) : moveMonth(-1)}>◀</button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span className="header-title-mobile" style={{ fontWeight: '900', fontSize: '1rem', color: '#fff', letterSpacing: '-0.5px' }}>{currentHeader}</span>
             <button className="nav-today-btn" style={{ padding: '0 12px', height: '34px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '800' }} onClick={resetToToday}>오늘</button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
             <button className="nav-arrow" style={{ width: '34px', height: '34px', borderRadius: '10px' }} onClick={() => viewMode === 'week' ? moveWeek(1) : moveMonth(1)}>▶</button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={() => setFilterMode('all')} style={{
-              padding: '5px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800',
-              background: filterMode === 'all' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255,255,255,0.05)',
-              border: filterMode === 'all' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid rgba(255,255,255,0.1)',
-              color: filterMode === 'all' ? '#fff' : '#94a3b8', cursor: 'pointer'
-            }}>전체</button>
-            <button onClick={() => setFilterMode('incomplete')} style={{
-              padding: '5px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800',
-              background: filterMode === 'incomplete' ? 'rgba(251, 191, 36, 0.3)' : 'rgba(255,255,255,0.05)',
-              border: filterMode === 'incomplete' ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(255,255,255,0.1)',
-              color: filterMode === 'incomplete' ? '#fff' : '#94a3b8', cursor: 'pointer'
-            }}>미완료</button>
-            <button onClick={() => setFilterMode('completed')} style={{
-              padding: '5px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '800',
-              background: filterMode === 'completed' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255,255,255,0.05)',
-              border: filterMode === 'completed' ? '1px solid rgba(34, 197, 94, 0.5)' : '1px solid rgba(255,255,255,0.1)',
-              color: filterMode === 'completed' ? '#fff' : '#94a3b8', cursor: 'pointer'
-            }}>완료</button>
-          </div>
-        </div>
-        <div style={{ marginBottom: '10px', textAlign: 'center' }}>
-          <span className="header-title-mobile" style={{ fontWeight: '900', fontSize: '0.95rem', color: '#fff', letterSpacing: '-0.5px' }}>{currentHeader}</span>
         </div>
 
       <div className="calendar-grid-premium" style={{ 
@@ -307,7 +273,21 @@ const ScheduleOnlyCalendar = ({
           }
           @media (max-width: 600px) {
             .calendar-grid-premium {
-              grid-template-columns: 1fr !important;
+              grid-template-columns: repeat(2, 1fr) !important;
+              gap: 6px !important;
+              padding: 4px !important;
+            }
+            .day-card-premium {
+              border-radius: 12px !important;
+            }
+            .day-header-premium {
+              padding: 6px 8px !important;
+            }
+            .day-header-premium .date-text {
+              font-size: 0.8rem !important;
+            }
+            .todo-list-scroll {
+              padding: 4px !important;
             }
           }
           .day-column-premium {
